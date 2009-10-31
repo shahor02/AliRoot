@@ -81,6 +81,8 @@ ClassImp( AliHLTTPCCAGPUTracker )
 
 bool AliHLTTPCCAGPUTracker::fgGPUUsed = false;
 
+#define SemLockName "AliceHLTTPCCAGPUTrackerInitLockSem"
+
 void AliHLTTPCCAGPUTracker::ReleaseGlobalLock(void* sem)
 {
 #ifdef R__WIN32
@@ -91,7 +93,7 @@ void AliHLTTPCCAGPUTracker::ReleaseGlobalLock(void* sem)
 #else
 	sem_t* pSem = (sem_t*) sem;
 	sem_post(pSem);
-	sem_unlink("AliceHLTTPCCAGPUTrackerInitLock");
+	sem_unlink(SemLockName);
 #endif
 }
 
@@ -125,7 +127,7 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 
 #ifdef R__WIN32
 	HANDLE* semLock = new HANDLE;
-	*semLock = CreateSemaphore(NULL, 1, 1, "AliceHLTTPCCAGPUTrackerInitLock");
+	*semLock = CreateSemaphore(NULL, 1, 1, SemLockName);
 	if (*semLock == NULL)
 	{
 		HLTError("Error creating GPUInit Semaphore");
@@ -133,7 +135,7 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 	}
 	WaitForSingleObject(*semLock, INFINITE);
 #else
-	sem_t* semLock = sem_open("AliceHLTTPCCAGPUTrackerInitLock", O_CREAT);
+	sem_t* semLock = sem_open(SemLockName, O_CREAT, 0x01B6, 1);
 	if (semLock == SEM_FAILED)
 	{
 		HLTError("Error creating GPUInit Semaphore");
