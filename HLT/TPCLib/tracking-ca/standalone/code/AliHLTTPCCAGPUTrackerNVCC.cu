@@ -126,9 +126,19 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 #ifdef R__WIN32
 	HANDLE* semLock = new HANDLE;
 	*semLock = CreateSemaphore(NULL, 1, 1, "AliceHLTTPCCAGPUTrackerInitLock");
+	if (*semLock == NULL)
+	{
+		HLTError("Error creating GPUInit Semaphore");
+		return(1);
+	}
 	WaitForSingleObject(*semLock, INFINITE);
 #else
 	sem_t* semLock = sem_open("AliceHLTTPCCAGPUTrackerInitLock", O_CREAT);
+	if (semLock == SEM_FAILED)
+	{
+		HLTError("Error creating GPUInit Semaphore");
+		return(1);
+	}
 	sem_wait(semLock);
 #endif
 
