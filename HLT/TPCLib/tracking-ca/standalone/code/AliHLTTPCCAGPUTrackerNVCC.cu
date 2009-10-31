@@ -26,6 +26,7 @@
 #else
 #include <sys/syscall.h>
 #include <semaphore.h>
+#include <fcntl.h>
 #endif
 
 #include "AliHLTTPCCADef.h"
@@ -124,7 +125,7 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 
 #ifdef R__WIN32
 	HANDLE* semLock = new HANDLE;
-	*semLock = CreateSemaphore(NULL, 0, 1, "AliceHLTTPCCAGPUTrackerInitLock");
+	*semLock = CreateSemaphore(NULL, 1, 1, "AliceHLTTPCCAGPUTrackerInitLock");
 	WaitForSingleObject(*semLock, INFINITE);
 #else
 	sem_t* semLock = sem_open("AliceHLTTPCCAGPUTrackerInitLock", O_CREAT);
