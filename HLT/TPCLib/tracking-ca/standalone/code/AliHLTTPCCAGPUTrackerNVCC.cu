@@ -135,6 +135,7 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 	if (fgGPUUsed)
 	{
 	    HLTWarning("CUDA already used by another AliHLTTPCCAGPUTracker running in same process");
+		ReleaseGlobalLock(semLock);
 	    return(1);
 	}
 	fgGPUUsed = 1;
@@ -151,6 +152,7 @@ int AliHLTTPCCAGPUTracker::InitGPU(int sliceCount, int forceDeviceID)
 	{
 		HLTError("Error getting CUDA Device Count");
 		fgGPUUsed = 0;
+		ReleaseGlobalLock(semLock);
 		return(1);
 	}
 	if (fDebugLevel >= 2) HLTInfo("Available CUDA devices:");
