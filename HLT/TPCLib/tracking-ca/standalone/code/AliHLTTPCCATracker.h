@@ -220,15 +220,14 @@ class AliHLTTPCCATracker
     return fData.HitWeight( row, hitIndex );
   }
   
-  GPUhd() int NTracklets() const { return fCommonMem->fNTracklets; }
-  GPUhd() int  *NTracklets() { return &fCommonMem->fNTracklets; }
+  GPUhd() int *NTracklets() const { return &fCommonMem->fNTracklets; }
   
   GPUhd() const AliHLTTPCCAHitId &TrackletStartHit( int i ) const { return fTrackletStartHits[i]; }
   GPUhd() AliHLTTPCCAHitId *TrackletStartHits() const { return fTrackletStartHits; }
   GPUhd() AliHLTTPCCAHitId *TrackletTmpStartHits() const { return fTrackletTmpStartHits; }
   GPUhd() const AliHLTTPCCATracklet &Tracklet( int i ) const { return fTracklets[i]; }
   GPUhd() AliHLTTPCCATracklet  *Tracklets() const { return fTracklets;}
-  GPUhd() int* TrackletRowHits() { return fTrackletRowHits; }
+  GPUhd() int* TrackletRowHits() const { return fTrackletRowHits; }
 
   GPUhd() int *NTracks()  const { return &fCommonMem->fNTracks; }
   GPUhd() AliHLTTPCCATrack *Tracks() const { return  fTracks; }
