@@ -237,15 +237,15 @@ class AliHLTTPCCATracker
   
   GPUhd() AliHLTTPCCASliceOutput** Output() const { return fOutput; }
   
-  GPUh() commonMemoryStruct *CommonMemory() {return(fCommonMem); }
+  GPUh() commonMemoryStruct *CommonMemory() const {return(fCommonMem); }
   GPUh() static  size_t CommonMemorySize() { return(sizeof(AliHLTTPCCATracker::commonMemoryStruct)); }
-  GPUh() char* &HitMemory() {return(fHitMemory); }
+  GPUh() char* HitMemory() const {return(fHitMemory); }
   GPUh() size_t HitMemorySize() const {return(fHitMemorySize); }
-  GPUh() char* &TrackletMemory() {return(fTrackletMemory); }
+  GPUh() char* TrackletMemory() {return(fTrackletMemory); }
   GPUh() size_t TrackletMemorySize() const {return(fTrackletMemorySize); }
-  GPUh() char* &TrackMemory() {return(fTrackMemory); }
+  GPUh() char* TrackMemory() {return(fTrackMemory); }
   GPUh() size_t TrackMemorySize() const {return(fTrackMemorySize); }
-  GPUhd() AliHLTTPCCARow* SliceDataRows() {return(fData.Rows()); }
+  GPUhd() AliHLTTPCCARow* SliceDataRows() const {return(fData.Rows()); }
   
   GPUhd() uint3* RowStartHitCountOffset() const {return(fRowStartHitCountOffset);}
   GPUhd() AliHLTTPCCATrackletConstructor::AliHLTTPCCAGPUTempMemory* GPUTrackletTemp() const {return(fGPUTrackletTemp);}
