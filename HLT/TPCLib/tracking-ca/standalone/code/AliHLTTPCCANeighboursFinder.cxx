@@ -125,7 +125,7 @@ GPUdi() void AliHLTTPCCANeighboursFinder::Thread
     }
   } else if ( iSync == 2 ) {
 
-#ifdef NVIDIA
+#ifdef HLTCA_GPUCODE
     if ( ( iBlock <= 1 ) || ( iBlock >= s.fNRows - 2 ) ) return;
 #else
     if ( ( s.fIRow <= 1 ) || ( s.fIRow >= s.fNRows - 2 ) ) return;
