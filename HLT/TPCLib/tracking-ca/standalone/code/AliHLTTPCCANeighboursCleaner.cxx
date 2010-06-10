@@ -42,7 +42,7 @@ GPUdi() void AliHLTTPCCANeighboursCleaner::Thread
     }
   } else if ( iSync == 1 ) {
     if ( s.fIRow <= s.fNRows - 3 ) {
-#ifdef NVIDIA
+#ifdef HLTCA_GPUCODE
       int Up = s.fIRowUp;
       int Dn = s.fIRowDn;
       const AliHLTTPCCARow &row = tracker.Row( s.fIRow );

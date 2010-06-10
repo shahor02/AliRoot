@@ -38,7 +38,7 @@ GPUdi() void AliHLTTPCCAStartHitsFinder::Thread
       } else s.fNHits = -1;
     }
   } else if ( iSync == 1 ) {
-#ifdef NVIDIA
+#ifdef HLTCA_GPUCODE
     volatile int *xxx = &(s.fIRow);
     const AliHLTTPCCARow &row = tracker.Row( *xxx );
 	  const AliHLTTPCCARow &rowUp = tracker.Row( (*xxx) + 2 );
@@ -49,7 +49,7 @@ GPUdi() void AliHLTTPCCAStartHitsFinder::Thread
     for ( int ih = iThread; ih < s.fNHits; ih += nThreads ) {
       if (tracker.HitLinkDownData(row, ih) < 0 && tracker.HitLinkUpData(row, ih) >= 0 && tracker.HitLinkUpData(rowUp, tracker.HitLinkUpData(row, ih)) >= 0) {
         int oldNRowStartHits = CAMath::AtomicAdd( &s.fNRowStartHits, 1 );
-#ifdef NVIDIA
+#ifdef HLTCA_GPUCODE
         s.fRowStartHits[oldNRowStartHits].Set( *xxx, ih );
 #else
         s.fRowStartHits[oldNRowStartHits].Set( s.fIRow, ih );
@@ -69,14 +69,9 @@ GPUdi() void AliHLTTPCCAStartHitsFinder::Thread
 #endif
       s.fNOldStartHits = nOffset;
 #ifdef HLTCA_GPU_SORT_STARTHITS
-#ifdef NVIDIA
-    volatile int *yyy = &(s.fIRow);
+      volatile int *yyy = &(s.fIRow);
 	  tracker.RowStartHitCountOffset()[*yyy].x = s.fNRowStartHits;
 	  tracker.RowStartHitCountOffset()[*yyy].y = nOffset;
-#else
-	  tracker.RowStartHitCountOffset()[s.fIRow].x = s.fNRowStartHits;
-	  tracker.RowStartHitCountOffset()[s.fIRow].y = nOffset;
-#endif
 #endif
     }
   } else if ( iSync == 3 ) {
