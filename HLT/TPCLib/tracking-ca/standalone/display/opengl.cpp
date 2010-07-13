@@ -325,7 +325,7 @@ void DrawGrid(AliHLTTPCCATracker& tracker)
 			glVertex3f(xx1 / 50, yy1 / 50, zz1 / 50);
 			glVertex3f(xx2 / 50, yy2 / 50, zz2 / 50);
 		}
-		for (int j = 0;j (signed) <= row.Grid().Nz();j++)
+		for (int j = 0;j <= (signed) row.Grid().Nz();j++)
 		{
 			float y1 = row.Grid().YMin();
 			float y2 = row.Grid().YMax();
