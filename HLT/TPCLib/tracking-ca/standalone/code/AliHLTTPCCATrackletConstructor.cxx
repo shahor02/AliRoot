@@ -25,7 +25,6 @@
 #include "AliHLTTPCCADef.h"
 #include "AliHLTTPCCATracklet.h"
 #include "AliHLTTPCCATrackletConstructor.h"
-#include "MemoryAssignmentHelpers.h"
 
 #define kMaxRowGap 4
 
@@ -218,10 +217,7 @@ GPUdi() void AliHLTTPCCATrackletConstructor::UpdateTracklet
 #endif //EXTERN_ROW_HITS
           break;
         }
-        //std::cout<<"mark1 "<<r.fItr<<std::endl;
-        //tParam.Print();
         tracker.GetErrors2( iRow, tParam.GetZ(), sinPhi, cosPhi, tParam.GetDzDs(), err2Y, err2Z );
-        //std::cout<<"mark2"<<std::endl;
 
         if ( !tParam.Filter( y, z, err2Y, err2Z, .99 ) ) {
 #ifndef EXTERN_ROW_HITS
@@ -245,7 +241,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::UpdateTracklet
 
     if ( r.fCurrIH < 0 ) {
       r.fStage = 1;
-      //AliHLTTPCCAPerformance::Instance().HNHitsPerSeed()->Fill(r.fNHits);
       if ( CAMath::Abs( tParam.SinPhi() ) > .999 ) {
         r.fNHits = 0; r.fGo = 0;
       } else {
@@ -378,10 +373,7 @@ GPUdi() void AliHLTTPCCATrackletConstructor::UpdateTracklet
 		  hh = hits[best];
 #endif //HLTCA_GPU_TEXTURE_FETCH
 
-      //std::cout<<"mark 3, "<<r.fItr<<std::endl;
-      //tParam.Print();
       tracker.GetErrors2( iRow, *( ( AliHLTTPCCATrackParam* )&tParam ), err2Y, err2Z );
-      //std::cout<<"mark 4"<<std::endl;
 
       float y = y0 + hh.x * stepY;
       float z = z0 + hh.y * stepZ;
