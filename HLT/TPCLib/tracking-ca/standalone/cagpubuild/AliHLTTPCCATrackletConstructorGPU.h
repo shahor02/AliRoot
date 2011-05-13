@@ -1,3 +1,5 @@
+#include "AliHLTTPCCAGPUConfig.h"
+
 GPUdi() void AliHLTTPCCATrackletConstructor::CopyTrackletTempData( AliHLTTPCCAThreadMemory &rMemSrc, AliHLTTPCCAThreadMemory &rMemDst, AliHLTTPCCATrackParam &tParamSrc, AliHLTTPCCATrackParam &tParamDst)
 {
 	//Copy Temporary Tracklet data from registers to global mem and vice versa
@@ -472,8 +474,15 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 	{
 		AliHLTTPCCATracker &tracker = pTracker[(nativeslice + iSlice) % nSlices];
 		int iTracklet;
+		int keepTracklet = 0;
+		int iPhase = 0;
 
-		while ((iTracklet = FetchTracklet(tracker, sMem)) >= 0)
+		int iRowStart, iRowEnd, iRowIncrement;
+
+		AliHLTTPCCATrackParam tParam;
+		AliHLTTPCCAThreadMemory rMem;
+
+		while (keepTracklet || (iTracklet = FetchTracklet(tracker, sMem)) >= 0)
 		{
 			if (iSlice != currentSlice)
 			{
@@ -490,10 +499,8 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 				currentSlice = iSlice;
 			}
 
-			AliHLTTPCCATrackParam tParam;
-			AliHLTTPCCAThreadMemory rMem;
-
-			if (iTracklet < sMem.fNTracklets)
+			if (keepTracklet) {}
+			else if (iTracklet < sMem.fNTracklets)
 			{
 				AliHLTTPCCAHitId id = tracker.TrackletStartHits()[iTracklet];
 
@@ -507,39 +514,45 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 				rMem.fItr = iTracklet;
 				rMem.fGo = 1;
+
+				keepTracklet = 1;
+
+				iRowStart = rMem.fStartRow;
+				iRowEnd = tracker.Param().NRows();
+				iRowIncrement = 1;
+				iPhase = 0;
 			}
 			else
 			{
 				rMem.fGo = 0;
 				rMem.fStartRow = rMem.fEndRow = 0;
+				iRowStart = iRowEnd = 0;
+				keepTracklet = 1;////
+				iPhase = 0;////
 			}
 
-			int iRowStart = rMem.fStartRow;
-			int iRowEnd = tracker.Param().NRows();
-			int iRowIncrement = 1;
-			for (int iPhase = 0;iPhase < 2;iPhase++)
+			for (int j = iRowStart;j != iRowEnd;j+=iRowIncrement)
 			{
-				for (int j = iRowStart;j != iRowEnd;j+=iRowIncrement)
-				{
-					UpdateTracklet(1, 1, 0, iTracklet, sMem, rMem, tracker, tParam, j);
-				}
+				UpdateTracklet(1, 1, 0, iTracklet, sMem, rMem, tracker, tParam, j);
+			}
 
-				if (iPhase)
+			if (iPhase)
+			{
+				if (iTracklet < sMem.fNTracklets)
 				{
-					if (iTracklet < sMem.fNTracklets)
-					{
-						StoreTracklet( 1, 1, 0, iTracklet, sMem, rMem, tracker, tParam );
-					}
+					StoreTracklet( 1, 1, 0, iTracklet, sMem, rMem, tracker, tParam );
 				}
-				else
-				{
-					rMem.fNMissed = 0;
-					rMem.fStage = 2;
-					if (rMem.fGo) if (!tParam.TransportToX( tracker.Row( rMem.fEndRow ).X(), tracker.Param().ConstBz(), .999)) rMem.fGo = 0;
-					iRowStart = rMem.fEndRow;
-					iRowEnd = -1;
-					iRowIncrement = -1;
-				}
+				keepTracklet = 0;
+			}
+			else
+			{
+				rMem.fNMissed = 0;
+				rMem.fStage = 2;
+				if (rMem.fGo) if (!tParam.TransportToX( tracker.Row( rMem.fEndRow ).X(), tracker.Param().ConstBz(), .999)) rMem.fGo = 0;
+				iRowStart = rMem.fEndRow;
+				iRowEnd = -1;
+				iRowIncrement = -1;
+				iPhase = 1;
 			}
 		}
 	}
