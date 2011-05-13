@@ -56,7 +56,7 @@
 #define HLTCA_GPU_TRACKLET_SELECTOR_SLICE_COUNT 3		//Currently must be smaller than avaiable MultiProcessors on GPU or will result in wrong results
 
 #define HLTCA_GPU_MAX_TRACKLETS 12288					//Max Number of Tracklets that can be processed by GPU Tracker, Should be divisible by 16 at least
-#define HLTCA_GPU_MAX_TRACKS 3072						//Max number of Tracks that can be processd by GPU Tracker
+#define HLTCA_GPU_MAX_TRACKS 1536						//Max number of Tracks that can be processd by GPU Tracker
 
 //#define HLTCA_GPU_EMULATION_SINGLE_TRACKLET 1313		//Run Tracklet constructor on on single Tracklet in Device Emulation Mode
 //#define HLTCA_GPU_EMULATION_DEBUG_TRACKLET 1313
@@ -68,8 +68,8 @@
 #define HLTCA_GPU_TRACKER_OBJECT_MEMORY 1024 * 1024		//Total amount of Memory to reserve for GPU Tracker Objects
 #define HLTCA_GPU_ROWS_MEMORY 1024 * 1024				//Total amount of Memory to reserve for GPU Row Parameters
 #define HLTCA_GPU_COMMON_MEMORY 1024 * 1024				//Total amount of Memory to reserve for CommomMemoryStruct on GPU
-#define HLTCA_GPU_SLICE_DATA_MEMORY 7 * 1024 * 1024		//Amount of Slice Data Memory to reserve per Slice on GPU
-#define HLTCA_GPU_GLOBAL_MEMORY 16 * 1024 * 1024		//Amount of global temporary Memory to reserve per Slice on GPU
+#define HLTCA_GPU_SLICE_DATA_MEMORY 6 * 1024 * 1024		//Amount of Slice Data Memory to reserve per Slice on GPU
+#define HLTCA_GPU_GLOBAL_MEMORY 13 * 1024 * 1024		//Amount of global temporary Memory to reserve per Slice on GPU
 #define HLTCA_GPU_TRACKS_MEMORY 2 * 1024 * 1024			//Amount of Memory to reserve for Final Tracks per Slice on Host as Page Locked Memory
 
 //Make sure options do not interfere
