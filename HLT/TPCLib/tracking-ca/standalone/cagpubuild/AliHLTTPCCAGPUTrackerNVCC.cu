@@ -805,7 +805,7 @@ int AliHLTTPCCAGPUTrackerNVCC::Reconstruct(AliHLTTPCCASliceOutput** pOutput, Ali
 		fGpuTracker[iSlice].GPUParametersConst()->fGPUiSlice = iSlice;
 		fGpuTracker[iSlice].GPUParametersConst()->fGPUnSlices = sliceCountLocal;
 		fSlaveTrackers[firstSlice + iSlice].GPUParameters()->fGPUError = 0;
-		fSlaveTrackers[firstSlice + iSlice].GPUParameters()->fNextTracklet = 0;
+		fSlaveTrackers[firstSlice + iSlice].GPUParameters()->fNextTracklet = (fConstructorBlockCount / sliceCountLocal + (fConstructorBlockCount % sliceCountLocal > iSlice)) * HLTCA_GPU_THREAD_COUNT;
 		fGpuTracker[iSlice].SetGPUTextureBase(fGpuTracker[0].Data().Memory());
 	}
 

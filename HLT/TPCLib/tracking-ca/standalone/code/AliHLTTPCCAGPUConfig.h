@@ -21,7 +21,7 @@
 #define HLTCA_GPU_THREAD_COUNT_FINDER 256
 #endif
 
-#define GLTCA_GPU_HELPER_THREADS 0						//Number of helper threads to speed up initialization/output
+#define GLTCA_GPU_HELPER_THREADS 2						//Number of helper threads to speed up initialization/output
 
 //GPU Parameters
 #define HLTCA_GPU_WARP_SIZE 32
@@ -38,7 +38,7 @@
 #define HLTCA_GPU_SCHED_ROW_STEP 32						//Amount of Rows to process in one step before rescheduling
 #define HLTCA_GPU_SCHED_FIXED_START						//Assign each GPU thread a start tracklet to start with instead of using the scheduler to obtain start tracklet
 //#define HLTCA_GPU_SCHED_FIXED_SLICE					//Make each Multiprocessor on GPU work only on a single slice during tracklet construction
-//#define HLTCA_GPU_RESCHED								//Use dynamic tracklet scheduling
+#define HLTCA_GPU_RESCHED								//Use dynamic tracklet scheduling
 
 #define HLTCA_GPU_ALTERNATIVE_SCHEDULER					//Use alternative scheduling algorithm (makes upper 4 options obsolete)
 
