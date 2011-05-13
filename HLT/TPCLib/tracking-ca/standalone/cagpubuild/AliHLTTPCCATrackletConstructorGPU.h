@@ -429,6 +429,7 @@ GPUdi() int AliHLTTPCCATrackletConstructor::FetchTracklet(AliHLTTPCCATracker &tr
 {
 	const int nativeslice = blockIdx.x % tracker.GPUParametersConst()->fGPUnSlices;
 	const int nTracklets = *tracker.NTracklets();
+	__syncthreads();
 	if (sMem.fNextTrackletFirstRun == 1)
 	{
 		if (threadIdx.x == 0)
@@ -445,16 +446,16 @@ GPUdi() int AliHLTTPCCATrackletConstructor::FetchTracklet(AliHLTTPCCATracker &tr
 			{
 				const int firstTracklet = CAMath::AtomicAdd(&tracker.GPUParameters()->fNextTracklet, HLTCA_GPU_THREAD_COUNT);
 				if (firstTracklet < nTracklets) sMem.fNextTrackletFirst = firstTracklet;
-				else sMem.fNextTrackletFirst = - HLTCA_GPU_THREAD_COUNT - 1;
+				else sMem.fNextTrackletFirst = -2;
 			}
 			else
 			{
-				sMem.fNextTrackletFirst = - HLTCA_GPU_THREAD_COUNT - 1;
+				sMem.fNextTrackletFirst = -2;
 			}
 		}
 	}
 	__syncthreads();
-	return (sMem.fNextTrackletFirst + threadIdx.x);
+	return (sMem.fNextTrackletFirst);
 }
 
 GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(AliHLTTPCCATracker *pTracker)
@@ -468,7 +469,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 	{
 		sMem.fNextTrackletFirstRun = 1;
 	}
-	__syncthreads();
 
 	for (int iSlice = 0;iSlice < nSlices;iSlice++)
 	{
@@ -479,11 +479,26 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 		int iRowStart, iRowEnd, iRowIncrement;
 
+		int iNextLocalTracklet = threadIdx.x;
+
 		AliHLTTPCCATrackParam tParam;
 		AliHLTTPCCAThreadMemory rMem;
 
-		while (keepTracklet || (iTracklet = FetchTracklet(tracker, sMem)) >= 0)
+		int tmpTracklet;
+		while (keepTracklet || (tmpTracklet = FetchTracklet(tracker, sMem)) != -2)
 		{
+			if (!keepTracklet)
+			{
+				if (tmpTracklet >= 0)
+				{
+					iTracklet = tmpTracklet + iNextLocalTracklet;
+				}
+				else
+				{
+					iTracklet = -1;
+				}
+			}
+
 			if (iSlice != currentSlice)
 			{
 				if (threadIdx.x == 0)
@@ -495,7 +510,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 				{
 					reinterpret_cast<int*>(&sMem.fRows)[i] = reinterpret_cast<int*>(tracker.SliceDataRows())[i];
 				}
-				__syncthreads();
 				currentSlice = iSlice;
 			}
 
