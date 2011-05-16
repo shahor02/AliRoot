@@ -497,7 +497,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 	for (int iSlice = 0;iSlice < nSlices;iSlice++)
 	{
 		AliHLTTPCCATracker &tracker = pTracker[(nativeslice + iSlice) % nSlices];
-		int keepTracklet = 0;
 
 		int iRow, iRowEnd, iRowIncrement;
 
@@ -505,6 +504,7 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 		AliHLTTPCCATrackParam tParam;
 		AliHLTTPCCAThreadMemory rMem;
+		rMem.fItr = -1;
 
 		int tmpTracklet;
 		while ((tmpTracklet = FetchTracklet(tracker, sMem)) != -2)
@@ -521,15 +521,14 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 				__syncthreads();
 			}
 
-			if (!keepTracklet)
+			if (rMem.fItr < 0)
 			{
 				rMem.fItr = tmpTracklet >= 0 ? tmpTracklet + iNextLocalTracklet : -1;
-				if (rMem.fItr >= sMem.fNTracklets) rMem.fItr = -1;
-			}
-
-			if (rMem.fItr >= 0)
-			{
-				if (!keepTracklet)
+				if (rMem.fItr >= sMem.fNTracklets)
+				{
+					rMem.fItr = -1;
+				}
+				else
 				{
 					AliHLTTPCCAHitId id = tracker.TrackletStartHits()[rMem.fItr];
 
@@ -543,16 +542,17 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 					rMem.fGo = 1;
 
-					keepTracklet = 1;
-
 					iRow = rMem.fStartRow;
 					iRowEnd = tracker.Param().NRows();
 					iRowIncrement = 1;
 				}
+			}
 
+			if (rMem.fItr >= 0)
+			{
 				for (int j = 0;j < HLTCA_GPU_ALTSCHED_STEPSIZE && iRow != iRowEnd;j++,iRow += iRowIncrement)
 				{
-					UpdateTracklet(0, 0, 0, 0, sMem, rMem, tracker, tParam, iRow);
+					UpdateTracklet(gridDim.x, blockDim.x, blockIdx.x, threadIdx.x, sMem, rMem, tracker, tParam, iRow);
 				}
 
 				if (iRow == iRowEnd)
@@ -574,8 +574,8 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 				if (!rMem.fGo)
 				{
-					StoreTracklet( 0, 0, 0, 0, sMem, rMem, tracker, tParam );
-					keepTracklet = 0;
+					StoreTracklet( gridDim.x, blockDim.x, blockIdx.x, threadIdx.x, sMem, rMem, tracker, tParam );
+					rMem.fItr = -1;
 					iNextLocalTracklet = CAMath::AtomicAdd(&sMem.fNextTrackletCount, 1);
 				}
 			}
