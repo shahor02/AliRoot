@@ -432,17 +432,14 @@ GPUdi() int AliHLTTPCCATrackletConstructor::FetchTracklet(AliHLTTPCCATracker &tr
 	const int nativeslice = blockIdx.x % tracker.GPUParametersConst()->fGPUnSlices;
 	const int nTracklets = *tracker.NTracklets();
 	__syncthreads();
-	if (sMem.fNextTrackletFirstRun == 1)
+	if (threadIdx.x == 0)
 	{
-		if (threadIdx.x == 0)
+		if (sMem.fNextTrackletFirstRun == 1)
 		{
 			sMem.fNextTrackletFirst = (blockIdx.x - nativeslice) / tracker.GPUParametersConst()->fGPUnSlices * HLTCA_GPU_THREAD_COUNT;
 			sMem.fNextTrackletFirstRun = 0;
 		}
-	}
-	else
-	{
-		if (threadIdx.x == 0)
+		else
 		{
 			if (tracker.GPUParameters()->fNextTracklet >= nTracklets || sMem.fNextTrackletCount < HLTCA_GPU_THREAD_COUNT * HLTCA_GPU_ALTSCHED_MINRATIO)
 			{
@@ -461,9 +458,6 @@ GPUdi() int AliHLTTPCCATrackletConstructor::FetchTracklet(AliHLTTPCCATracker &tr
 				}
 			}
 		}
-	}
-	if (threadIdx.x == 0)
-	{
 		if (sMem.fNextTrackletFirst == -1 && sMem.fNextTrackletCount == HLTCA_GPU_THREAD_COUNT)
 		{
 			sMem.fNextTrackletFirst = -2;
