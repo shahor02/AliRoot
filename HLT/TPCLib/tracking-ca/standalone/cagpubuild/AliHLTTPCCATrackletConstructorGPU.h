@@ -517,8 +517,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 	{
 		AliHLTTPCCATracker &tracker = pTracker[(nativeslice + iSlice) % nSlices];
 
-		int iRow, iRowEnd, iRowIncrement;
-
 		int iNextLocalTracklet = threadIdx.x;
 
 		AliHLTTPCCATrackParam tParam;
@@ -561,20 +559,19 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 
 					rMem.fGo = 1;
 
-					iRow = rMem.fStartRow;
-					iRowEnd = tracker.Param().NRows();
-					iRowIncrement = 1;
+					rMem.fIRow = rMem.fStartRow;
+					rMem.fIRowEnd = tracker.Param().NRows();
 				}
 			}
 
 			if (rMem.fItr >= 0)
 			{
-				for (int j = 0;j < HLTCA_GPU_ALTSCHED_STEPSIZE && iRow != iRowEnd;j++,iRow += iRowIncrement)
+				for (int j = 0;j < HLTCA_GPU_ALTSCHED_STEPSIZE && rMem.fIRow != rMem.fIRowEnd;j++,rMem.fIRow += rMem.fStage == 2 ? -1 : 1)
 				{
-					UpdateTracklet(gridDim.x, blockDim.x, blockIdx.x, threadIdx.x, sMem, rMem, tracker, tParam, iRow);
+					UpdateTracklet(gridDim.x, blockDim.x, blockIdx.x, threadIdx.x, sMem, rMem, tracker, tParam, rMem.fIRow);
 				}
 
-				if (iRow == iRowEnd)
+				if (rMem.fIRow == rMem.fIRowEnd)
 				{
 					if (rMem.fStage >= 2)
 					{
@@ -585,9 +582,8 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 						rMem.fNMissed = 0;
 						rMem.fStage = 2;
 						if (!tParam.TransportToX( tracker.Row( rMem.fEndRow ).X(), tracker.Param().ConstBz(), .999)) rMem.fGo = 0;
-						iRow = rMem.fEndRow;
-						iRowEnd = -1;
-						iRowIncrement = -1;
+						rMem.fIRow = rMem.fEndRow;
+						rMem.fIRowEnd = -1;
 					}
 				}
 
