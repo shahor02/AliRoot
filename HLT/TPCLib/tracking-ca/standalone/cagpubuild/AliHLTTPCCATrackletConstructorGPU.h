@@ -481,8 +481,6 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 		AliHLTTPCCATracker &tracker = pTracker[(nativeslice + iSlice) % nSlices];
 		int iRow, iRowEnd;
 
-		int iNextLocalTracklet = threadIdx.x;
-
 		AliHLTTPCCATrackParam tParam;
 		AliHLTTPCCAThreadMemory rMem;
 
@@ -491,7 +489,7 @@ GPUdi() void AliHLTTPCCATrackletConstructor::AliHLTTPCCATrackletConstructorGPU(A
 		{
 			if (tmpTracklet >= 0)
 			{
-				rMem.fItr = tmpTracklet + iNextLocalTracklet;
+				rMem.fItr = tmpTracklet + threadIdx.x;
 			}
 			else
 			{
