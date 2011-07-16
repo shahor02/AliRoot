@@ -120,9 +120,10 @@ void* AliHLTTPCCAGPUTrackerNVCC::helperWrapper(void* arg)
 					cls->ReadEvent(par->pClusterData, par->fFirstSlice, myISlice, par->fNum + 1);
 					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetPointersTracklets(HLTCA_GPU_MAX_TRACKLETS);
 					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetPointersHits(par->pClusterData[myISlice].NumberOfClusters());
+					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetPointersTracks(HLTCA_GPU_MAX_TRACKS, par->pClusterData[myISlice].NumberOfClusters());
 					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetGPUTrackerTrackletsMemory(reinterpret_cast<char*> ( new uint4 [ cls->fSlaveTrackers[par->fFirstSlice + myISlice].TrackletMemorySize()/sizeof( uint4 ) + 100] ), HLTCA_GPU_MAX_TRACKLETS, cls->fConstructorBlockCount);
 					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetGPUTrackerHitsMemory(reinterpret_cast<char*> ( new uint4 [ cls->fSlaveTrackers[par->fFirstSlice + myISlice].HitMemorySize()/sizeof( uint4 ) + 100]), par->pClusterData[myISlice].NumberOfClusters());
-
+					cls->fSlaveTrackers[par->fFirstSlice + myISlice].SetGPUTrackerTracksMemory(reinterpret_cast<char*> ( new uint4 [ cls->fSlaveTrackers[par->fFirstSlice + myISlice].TrackMemorySize()/sizeof( uint4 ) + 100]), HLTCA_GPU_MAX_TRACKS, par->pClusterData[myISlice].NumberOfClusters());
 					cls->fSlaveTrackers[par->fFirstSlice + myISlice].DoTracking();
 					cls->WriteOutput(par->pOutput, par->fFirstSlice, myISlice, par->fNum + 1);
 				}
