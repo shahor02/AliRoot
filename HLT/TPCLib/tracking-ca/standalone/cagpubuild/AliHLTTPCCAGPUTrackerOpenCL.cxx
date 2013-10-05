@@ -142,7 +142,7 @@ int AliHLTTPCCAGPUTrackerOpenCL::InitGPU_Runtime(int sliceCount, int forceDevice
 
 		deviceSpeed = (long long int) freq * (long long int) shaders;
 		if (device_type & CL_DEVICE_TYPE_GPU) deviceSpeed *= 10;
-		if (fDebugLevel >= 2) printf("Found Device %d: %s %s (Frequency %d, Shaders %d, %d bit) (Speed Value: %lld)\n", i, device_vendor, device_name, (int) freq, (int) shaders, (int) nbits), (long long int) deviceSpeed;
+		if (fDebugLevel >= 2) printf("Found Device %d: %s %s (Frequency %d, Shaders %d, %d bit) (Speed Value: %lld)\n", i, device_vendor, device_name, (int) freq, (int) shaders, (int) nbits, (long long int) deviceSpeed);
 
 		if (deviceSpeed > bestDeviceSpeed)
 		{
