@@ -1,5 +1,5 @@
 //-*- Mode: C++ -*-
-// @(#) $Id: AliHLTTPCCATrackerComponent.h 51262 2011-08-23 18:16:49Z hristov $
+// @(#) $Id: AliHLTTPCCATrackerComponent.h 57538 2012-06-28 13:28:40Z drohr $
 // ************************************************************************
 // This file is property of and copyright by the ALICE HLT Project        *
 // ALICE Experiment at CERN, All rights reserved.                         *
