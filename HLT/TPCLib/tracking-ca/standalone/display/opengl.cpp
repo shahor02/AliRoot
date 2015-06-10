@@ -24,6 +24,7 @@ volatile int mouseReset = false;
 #else
 #include <GL/glx.h> // This includes the necessary X headers
 #include <pthread.h>
+#include "bitmapfile.h"
 
 Display *g_pDisplay = NULL;
 Window   g_window;
@@ -964,8 +965,8 @@ void DoScreenshot(char* filename, int SCALE_X, unsigned char** mixBuffer = NULL,
 
 		BITMAPFILEHEADER bmpFH;
 		BITMAPINFOHEADER bmpIH;
-		ZeroMemory(&bmpFH, sizeof(bmpFH));
-		ZeroMemory(&bmpIH, sizeof(bmpIH));
+		memset(&bmpFH, 0, sizeof(bmpFH));
+		memset(&bmpIH, 0, sizeof(bmpIH));
 
 		bmpFH.bfType = 19778; //"BM"
 		bmpFH.bfSize = sizeof(bmpFH) + sizeof(bmpIH) + 3 * view[2] * view[3];
