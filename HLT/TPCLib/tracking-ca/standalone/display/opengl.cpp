@@ -272,10 +272,10 @@ void DrawTracklets(AliHLTTPCCATracker& tracker)
 			{
 				const AliHLTTPCCARow &row = tracker.Data().Row(j);
 				const int cid = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(row, rowHit));
-				if (j != tracklet.FirstRow())
+				/*if (j != tracklet.FirstRow())
 				{
 					float dist = (oldpos.x - globalPos[cid].x) * (oldpos.x - globalPos[cid].x) + (oldpos.y - globalPos[cid].y) * (oldpos.y - globalPos[cid].y) + (oldpos.z - globalPos[cid].z) * (oldpos.z - globalPos[cid].z);
-				}
+				}*/
 				oldpos = globalPos[cid];
 				drawPointLinestrip(cid, 4);
 			}
@@ -460,8 +460,6 @@ int DrawGLScene(bool doAnimation = false)									// Here's Where We Do All The 
 	static GLuint glDLpoints[fgkNSlices][8];
 	static GLuint glDLgrid[fgkNSlices];
 	static int glDLcreated = 0;
-
-	static int nAnimatedFrame = 0;
 
 	AliHLTTPCCAStandaloneFramework &hlt = AliHLTTPCCAStandaloneFramework::Instance();
 
@@ -961,7 +959,6 @@ void DoScreenshot(char* filename, int SCALE_X, unsigned char** mixBuffer = NULL,
 	if (filename)
 	{
 		FILE* fp = fopen(filename, "w+b");
-		int nEmptySync = 0, fEmpty;
 
 		BITMAPFILEHEADER bmpFH;
 		BITMAPINFOHEADER bmpIH;
