@@ -360,7 +360,7 @@ void AliTPCcalibTimeGain::ProcessCosmicEvent(AliVEvent *event) {
   //
   // track loop
   //
-  for (Int_t i=0;i<nTracks;++i) {
+  for (Int_t i=0;i<nFriendTracks;++i) {
 
     AliVTrack *track = event->GetVTrack(i);
     if (!track) continue;
@@ -428,7 +428,7 @@ void AliTPCcalibTimeGain::ProcessBeamEvent(AliVEvent *event) {
   //
   // track loop
   //
-  for (Int_t i=0;i<nTracks;++i) { // begin track loop
+  for (Int_t i=0;i<nFriendTracks;++i) { // begin track loop
 
     AliVTrack *track = event->GetVTrack(i);
     if (!track) continue;
