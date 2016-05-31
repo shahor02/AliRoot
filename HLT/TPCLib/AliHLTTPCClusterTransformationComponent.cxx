@@ -57,7 +57,7 @@ AliHLTTPCClusterTransformationComponent::AliHLTTPCClusterTransformationComponent
 fOfflineMode(0),
 fInitializeByObjectInDoEvent(0),
 fInitialized(0),
-fTPCPresent(0)
+fTPCPresent(0),
 fBenchmark("ClusterTransformation")
 {
   // see header file for class documentation
