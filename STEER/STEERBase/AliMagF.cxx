@@ -129,7 +129,7 @@ AliMagF::AliMagF(const char *name, const char* title, Double_t factorSol, Double
     if      (fBeamType == kBeamTypepp) fBeamEnergy = 7000.; // max proton energy
     else if (fBeamType == kBeamTypeAA) fBeamEnergy = 2760;  // max PbPb energy
     else if (fBeamType == kBeamTypepA || fBeamType == kBeamTypeAp) fBeamEnergy = 2760;  // same rigitiy max PbPb energy
-    AliInfo("Maximim possible beam energy for requested beam is assumed");
+    AliInfo("Maximum possible beam energy for requested beam is assumed");
   } 
   const char* parname = 0;
   //  
