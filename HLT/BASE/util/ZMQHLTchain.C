@@ -59,8 +59,10 @@ void ZMQHLTchain(int configId=2)
 	case kCompressionHistoChainConfig:
 		{
 		  AliHLTConfiguration blockfilter("blockfilter", "BlockFilter", "source", "-datatype 'HWCLUST1' 'TPC ' -datatype 'REMCLSCM' 'TPC ' -datatype 'COMPDESC' 'TPC '");
-		AliHLTConfiguration compressionHisto("compressionHisto", "TPCDataCompressorMonitor", "blockfilter", "-pushback-period=20");
-		listOfChains += " compressionHisto";
+      AliHLTConfiguration compressionHisto("compressionHisto", "TPCDataCompressorMonitor", "blockfilter", "-pushback-period=20");
+      listOfChains += " compressionHisto";
+      AliHLTConfiguration clusterAttachment("promptQA" , "PromptRecoQA" , "source", "-axis=tpcTrackPt,0,0,0 -axis=tpcClusterCharge,0,0,0 -reset -pushback-period=60 -ResetAfterPush=0");
+      listOfChains += " promptQA";
 		}
 		break;
 	case kCorrelationMinBiasHistoChainConfig:
