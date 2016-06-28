@@ -440,6 +440,7 @@ Int_t ProcessOptionString(TString arguments)
     }
     else if (option.EqualTo("config"))
     {
+      printf("configuring chain with %s\n", value.Data());
       fConfigMacro = value;
     }
     else if (option.EqualTo("requestGRP"))
