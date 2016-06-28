@@ -95,6 +95,7 @@ TPRegexp* fSendSelection = NULL;
 TPRegexp* fUnSendSelection = NULL;
 std::string fNameList = "";
 TString fTitleAnnotation = "";
+TString fNameAnnotation = "";
 Bool_t fTitleAnnotationWithContainerName = kFALSE;
 
 AliHLTDataTopic fInfoTopic = kAliHLTDataTypeInfo;
@@ -170,6 +171,7 @@ const char* fUSAGE =
     " -cache : don't merge, only cache (i.e. replace)\n"
     " -annotateTitle : prepend string to title (if applicable)\n"
     " -annotateTitleWithContainerName : prepend the container name to title\n"
+    " -annotateName : prepend string to the name\n"
     " -ZMQtimeout: when to timeout the sockets (milliseconds)\n"
     " -schema : include the ROOT streamer infos in the messages containing ROOT objects\n"
     " -SchemaOnRequest : include streamers ONCE (after a request)\n"
@@ -452,6 +454,15 @@ int AddNewObject(const char* name, TObject* object, TMap* map)
     TString title = named->GetTitle();
     title = fTitleAnnotation + " " + title;
     named->SetTitle(title);
+  }
+  if (!fNameAnnotation.IsNull())
+  {
+    TNamed* named = dynamic_cast<TNamed*>(object);
+    if (!named) return 0;
+
+    TString name = named->GetName();
+    name = fNameAnnotation + " " + name;
+    named->SetName(name);
   }
   return 0;
 }
@@ -919,6 +930,10 @@ Int_t ProcessOptionString(TString arguments)
     {
       fTitleAnnotation = value;
     }
+    else if (option.EqualTo("annotateName"))
+    {
+      fNameAnnotation = value;
+    }
     else if (option.EqualTo("annotateTitleWithContainerName"))
     {
       fTitleAnnotationWithContainerName = value.Contains("0")?kFALSE:kTRUE;
@@ -1214,10 +1229,13 @@ Int_t ReadFromFile(std::string file)
     {
       if (fVerbose) Printf("file (%s): attaching %s",file.c_str(),objectName.c_str());
       //prevent annotations to be added on top of the old ones
-      TString oldAnn = fTitleAnnotation;
+      TString oldTitleAnn = fTitleAnnotation;
+      TString oldNameAnn = fNameAnnotation;
       fTitleAnnotation="";
+      fNameAnnotation="";
       AddObject(object);
-      fTitleAnnotation=oldAnn;
+      fTitleAnnotation=oldTitleAnn;
+      fNameAnnotation=oldNameAnn;
     }
   }
   f.Close();
