@@ -106,6 +106,9 @@ set_target_properties(${MODULE} PROPERTIES COMPILE_FLAGS "")
 # System dependent: Modify the way the library is build
 if(${CMAKE_SYSTEM} MATCHES Darwin)
     set_target_properties(${MODULE} PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    include_directories(/usr/X11R6/include)
+    SET(CMAKE_EXE_LINKER_FLAGS 
+      "${CMAKE_EXE_LINKER_FLAGS} -L/usr/X11R6/lib")
 endif(${CMAKE_SYSTEM} MATCHES Darwin)
 
 # Installation
