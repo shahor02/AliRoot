@@ -1,4 +1,4 @@
-void ZMQHLTchain(int configId=2, int outSocketPort=60324)
+void ZMQHLTchain(int configId=2, const char* outSocket="PUB@tcp://*:60324")
 {
   enum
   {
@@ -37,7 +37,7 @@ void ZMQHLTchain(int configId=2, int outSocketPort=60324)
       break;
     case kClusterAttachmentConfig:
       {
-        AliHLTConfiguration clusterAttachment("promptQA" , "PromptRecoQA" , "source", "-axis=tpcTrackPt,0,0,0 -axis=tpcClusterCharge,0,0,0 -reset -pushback-period=20 -ResetAfterPush=0");
+        AliHLTConfiguration clusterAttachment("promptQA" , "PromptRecoQA" , "source", "-axis=tpcTrackPt,0,0,0 -axis=tpcClusterCharge,0,0,0 -reset -pushback-period=20 -ResetAfterPush=1");
         listOfChains += " promptQA";
       }
       break;
@@ -134,7 +134,7 @@ void ZMQHLTchain(int configId=2, int outSocketPort=60324)
   }
 	
   //send blocks via ZMQ
-  AliHLTConfiguration zmqSink("sink","ZMQsink", listOfChains.Data(), Form("out=PUB@tcp://*:%i",outSocketPort));
+  AliHLTConfiguration zmqSink("sink","ZMQsink", listOfChains.Data(), Form("out=%s",outSocket));
   printf("done configuring chain\n");
 }
 
