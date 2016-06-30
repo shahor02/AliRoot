@@ -97,6 +97,7 @@ std::string fNameList = "";
 TString fTitleAnnotation = "";
 TString fNameAnnotation = "";
 Bool_t fTitleAnnotationWithContainerName = kFALSE;
+Bool_t fIgnoreDefaultNamesWhenUnpacking = kFALSE;
 
 AliHLTDataTopic fInfoTopic = kAliHLTDataTypeInfo;
 
@@ -180,6 +181,7 @@ const char* fUSAGE =
     " -UnpackContainers : unpack the contents of AliAnalysisDataContainers\n"
     " -UnpackCustom : use a custom method to unpack the objects (must return TCollection* AND must be in a collection)\n"
     " -CustomUnpackMethodName : name of the custom method to call to get a pointer to unpacked objects\n"
+    " -IgnoreDefaultContainerNames : don't prefix default container names (TList,TObjArray)\n"
     " -statefile : save/restore state on exit/start\n"
     ;
 //_______________________________________________________________________________________
@@ -988,6 +990,10 @@ Int_t ProcessOptionString(TString arguments)
     {
       fCustomUnpackMethod = value.Contains("0")?kFALSE:kTRUE;
     }
+    else if (option.EqualTo("IgnoreDefaultContainerNames"))
+    {
+      fIgnoreDefaultNamesWhenUnpacking = (value.Contains("0"))?kFALSE:kTRUE;
+    }
     else if (option.EqualTo("statefile"))
     {
       fInitFile = value.Data();
@@ -1073,13 +1079,17 @@ int main(Int_t argc, char** argv)
 Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, std::string prefix)
 {
   std::string kontName = kont->GetName();
-  std::string kontPrefix = prefix + kontName + "/";
+  if (fIgnoreDefaultNamesWhenUnpacking && ( kontName=="" )) {
+    kontName = "";
+  } else {
+    kontName+="/";
+  }
+  std::string kontPrefix = prefix + kontName;
 
   TObject* analData = kont->GetData();
   if (TCollection* collection = dynamic_cast<TCollection*>(analData)) {
     //a collection
     if (fVerbose) Printf("  have a collection %p",collection);
-    const char* collName = collection->GetName();
     GetObjects(collection, list, kontPrefix);
     if (fVerbose) printf("  destroying collection %p\n",collection);
     delete collection;
@@ -1090,7 +1100,7 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
     TNamed* named = dynamic_cast<TNamed*>(analData);
     if (named) {
       std::string name = kontPrefix + analData->GetName();
-      named->SetName(kontName.c_str());
+      named->SetName(name.c_str());
       if (fTitleAnnotationWithContainerName) {
         std::string title = kontPrefix + analData->GetTitle();
         named->SetTitle(title.c_str());
@@ -1109,8 +1119,13 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
 //______________________________________________________________________________
 Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::string prefix)
 {
-  std::string kontName = collection->GetName();
-  std::string kontPrefix = prefix + kontName + "/";
+  std::string collName = collection->GetName();
+  if (fIgnoreDefaultNamesWhenUnpacking && ( collName=="TObjArray" || collName=="TList" )) {
+    collName = "";
+  } else {
+    collName+="/";
+  }
+  std::string collPrefix = prefix +collName;
   TIter next(collection);
   while (TObject* tmp = next()) {
     collection->Remove(tmp);
@@ -1134,20 +1149,20 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
     if (analKont) {
       //analysis container
       if (fVerbose) Printf("  have an analysis container %p",analKont);
-      GetObjects(analKont,list,kontPrefix);
+      GetObjects(analKont,list,collPrefix);
       if (fVerbose) printf("  destroying anal container %p\n",analKont);
       delete analKont;
 
     } else if (subcollection) {
       //embedded collection
       if (fVerbose) Printf("  have a collection %p",analKont);
-      GetObjects(subcollection, list, kontPrefix);
+      GetObjects(subcollection, list, collPrefix);
       if (fVerbose) Printf("  destroying a collection %p",analKont);
 
     } else if (unpackedList) {
         //something implementing a custom method to unpack into a list
         if (fVerbose) Printf("  using the custom unpacked list %p",analKont);
-        GetObjects(unpackedList, list, kontPrefix);
+        GetObjects(unpackedList, list, collPrefix);
         if (fVerbose) Printf("  destroying the custom unpacked list %p",analKont);
         delete unpackedList;
 
@@ -1155,10 +1170,10 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
       //..or just an object
       TNamed* named = dynamic_cast<TNamed*>(tmp);
       if (named) {
-        std::string name = kontPrefix + named->GetName();
+        std::string name = collPrefix + named->GetName();
         named->SetName(name.c_str());
         if (fTitleAnnotationWithContainerName) {
-          std::string title = kontPrefix + named->GetTitle();
+          std::string title = collPrefix + named->GetTitle();
           named->SetTitle(title.c_str());
         }
         if (fVerbose) Printf("--in: %s (%s), %p",
