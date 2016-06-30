@@ -142,7 +142,7 @@ void* fZMQresetBroadcast = NULL;
 //request trigger
 void* fZMQtrig = NULL; //dummy socket to trigger requests at constant time interval
 std::string fZMQconfigTRIG = "PAIR@inproc://trigger";
-pthread_t fTRIGthread = NULL;
+pthread_t fTRIGthread;
 void* runTRIGthread(void*);
 
 const char* fUSAGE =
