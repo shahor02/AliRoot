@@ -71,6 +71,7 @@ TString fZMQsubscriptionIN = "";
 TString fZMQconfigOUT  = "PUSH";
 TString fZMQconfigMON  = "REP";
 TString fZMQconfigSYNC  = "";
+TString fOnResetSendTo = "";
 Int_t   fZMQmaxQueueSize = 10;
 Int_t   fZMQtimeout = -1;
 std::string fInitFile = "";
@@ -136,6 +137,7 @@ void* fZMQmon = NULL;        //the request-reply socket, here we request the mer
 void* fZMQout = NULL;        //the monitoring socket, here we publish a copy of the data
 void* fZMQin  = NULL;        //the in socket - entry point for the data to be merged.
 void* fZMQsync = NULL;
+void* fZMQresetBroadcast = NULL;
 
 //request trigger
 void* fZMQtrig = NULL; //dummy socket to trigger requests at constant time interval
@@ -156,6 +158,7 @@ const char* fUSAGE =
     " -request-timeout : timeout for REQ socket [ms] after which socket is reinitialized\n"
     " -ResetOnSend : always reset after send\n"
     " -ResetOnRequest : reset once after reply\n"
+    " -OnResetBroadcastTo : push (a copy) before resetting to socket [in|out|mon]\n"
     " -RequestResetOnRequest : if requesting form another merger, request a ResetOnRequest\n"
     " -ClearOnReset : instead of destroying data - clear it by calling TH1::Reset() on all histograms\n"
     " -AllowGlobalReset :  allow a global \'reset\' on request\n"
@@ -648,7 +651,7 @@ Int_t DoSend(void* socket)
 {
   //only send if we actually CAN send
   if ( !(alizmq_socket_state(socket) & ZMQ_POLLOUT) ) {
-    if (fVerbose) printf("cannot send, socket in wrong state\n");
+    if (fVerbose) printf("cannot send to %s, socket in wrong state\n", alizmq_socket_name(alizmq_socket_type(socket)));
     return 0;
   }
 
@@ -657,6 +660,7 @@ Int_t DoSend(void* socket)
   aliZMQmsg message;
   //forward the (run-)info string
   alizmq_msg_add(&message, &fInfoTopic, fInfo);
+  Bool_t reset = kFALSE;
   Int_t rc = 0;
   TObject* object = NULL;
   TObject* key = NULL;
@@ -687,6 +691,7 @@ Int_t DoSend(void* socket)
     rc = alizmq_msg_add(&message, &topic, object, fCompression, fSchema);
     if (fResetOnSend || ( fResetOnRequest && fAllowResetOnRequest ))
     {
+      reset = kTRUE;
       if (fClearOnReset) {
         if (fVerbose) {printf("resetting %s\n",objectName);}
         TH1* hist = dynamic_cast<TH1*>(object);
@@ -705,8 +710,18 @@ Int_t DoSend(void* socket)
     alizmq_msg_prepend_streamer_infos(&message, fSchema);
   }
 
+  int sentBytes = 0;
+  //send a copy to the broadcast socket if requested on reset
+  if (reset && fZMQresetBroadcast && fZMQresetBroadcast!=socket) {
+    aliZMQmsg messageCopy;
+    alizmq_msg_copy(&messageCopy, &message);
+    sentBytes += alizmq_msg_send(&messageCopy, fZMQresetBroadcast, 0);
+    if (fVerbose) printf("a copy was broadcasted, %i bytes\n", sentBytes);
+    alizmq_msg_close(&messageCopy);
+  }
+
   //send
-  int sentBytes = alizmq_msg_send(&message, socket, 0);
+  sentBytes += alizmq_msg_send(&message, socket, 0);
   fBytesOUT += sentBytes;
   if (fVerbose) Printf("merger sent %i bytes", sentBytes);
   alizmq_msg_close(&message);
@@ -744,6 +759,10 @@ int ResetOutputData(Bool_t force)
       return ClearOutputData();
     } else {
       if (fVerbose) Printf("Resetting the merger");
+      if (fZMQresetBroadcast) {
+        if (fVerbose) Printf("broadcasting data on reset");
+        DoSend(fZMQresetBroadcast);
+      }
       fMergeObjectMap.DeleteAll();
       ClearMergeListMap();
       return 1;
@@ -757,6 +776,11 @@ int ClearOutputData()
 {
   TObject* object = NULL;
   TObject* key = NULL;
+
+  if (fZMQresetBroadcast) {
+    if (fVerbose) Printf("broadcasting data on reset");
+    DoSend(fZMQresetBroadcast);
+  }
 
   TIter mapIter(&fMergeObjectMap);
   while ((key = mapIter.Next()))
@@ -833,6 +857,7 @@ Int_t ProcessOptionString(TString arguments)
   //process passed options
   Int_t nOptions=0;
   aliStringVec* options = AliOptionParser::TokenizeOptionString(arguments);
+  bool reconfigureZMQ = false;
   for (aliStringVec::iterator i=options->begin(); i!=options->end(); ++i)
   {
     const TString& option = i->first;
@@ -857,6 +882,15 @@ Int_t ProcessOptionString(TString arguments)
     {
       fClearOnReset = value.Contains("0")?kFALSE:kTRUE;
     }
+    else if (option.EqualTo("OnResetBroadcastTo"))
+    {
+      if (value.EqualTo("in")||value.EqualTo("out")||value.EqualTo("mon")) {
+        fOnResetSendTo = value;
+      } else {
+        printf("OnResetBroadcastTo must be [in|out|mon]\n");
+        return -1;
+      }
+    }
     else if (option.EqualTo("MaxObjects"))
     {
       fMaxObjects = value.Atoi();
@@ -864,14 +898,17 @@ Int_t ProcessOptionString(TString arguments)
     else if (option.EqualTo("ZMQconfigIN") || option.EqualTo("in"))
     {
       fZMQconfigIN = value;
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigOUT") || option.EqualTo("out"))
     {
       fZMQconfigOUT = value;
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigMON") || option.EqualTo("mon"))
     {
       fZMQconfigMON = value;
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigSYNC") || option.EqualTo("sync"))
     {
@@ -882,6 +919,7 @@ Int_t ProcessOptionString(TString arguments)
         printf("sync socket has to be PUB or SUB!\n");
         return -1;
       }
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("Verbose"))
     {
@@ -894,10 +932,12 @@ Int_t ProcessOptionString(TString arguments)
     else if (option.EqualTo("ZMQmaxQueueSize"))
     {
       fZMQmaxQueueSize=value.Atoi();
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQtimeout"))
     {
       fZMQtimeout=value.Atoi();
+      reconfigureZMQ = true;
     }
     else if (option.EqualTo("request-period"))
     {
@@ -1007,8 +1047,19 @@ Int_t ProcessOptionString(TString arguments)
     nOptions++;
   }
 
+  if (reconfigureZMQ && (InitZMQ()<0)) {
+    Printf("failed ZMQ init");
+    return -1;
+  }
+
   if (fRequestTimeout<100) printf("WARNING: setting the socket timeout to %lu ms can be dagerous,\n"
       "         choose something more realistic or leave the default as it is\n", fRequestTimeout);
+
+  if (fOnResetSendTo.IsNull()) fZMQresetBroadcast = NULL;
+  else if (fOnResetSendTo.EqualTo("in")) fZMQresetBroadcast = fZMQin;
+  else if (fOnResetSendTo.EqualTo("mon")) fZMQresetBroadcast = fZMQmon;
+  else if (fOnResetSendTo.EqualTo("out")) fZMQresetBroadcast = fZMQout;
+  if (fVerbose) printf("configured to bradcast on %s, socket %p\n", fOnResetSendTo.Data(), fZMQresetBroadcast);
 
   delete options; //tidy up
 
@@ -1030,6 +1081,13 @@ int main(Int_t argc, char** argv)
   if (signal(SIGTERM, sig_handler) == SIG_ERR)
   printf("\ncan't catch SIGTERM\n");
 
+  //the context
+  fZMQcontext = alizmq_context();
+  if (!fZMQcontext) {
+    printf("could not init the ZMQ context\n");
+    return 1;
+  }
+
   //process args
   TString argString = AliOptionParser::GetFullArgString(argc,argv);
   if (ProcessOptionString(argString)<=0)
@@ -1043,21 +1101,12 @@ int main(Int_t argc, char** argv)
     AliLog::SetGlobalLogLevel(AliLog::kWarning);
   }
 
-  //the context
-  fZMQcontext = alizmq_context();
-
-  //init stuff
-  if (InitZMQ()<0) {
-    Printf("failed init");
-    return 1;
-  }
-
   if (fRequestPeriod>=0) {
     pthread_create(&fTRIGthread, NULL, runTRIGthread, NULL);
   }
 
   //init other stuff
-  fListOfObjects.reserve(100);
+  fListOfObjects.reserve(1000);
 
   ReadFromFile(fInitFile);
 
