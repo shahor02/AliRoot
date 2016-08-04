@@ -1204,15 +1204,15 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
 
     } else if (subcollection) {
       //embedded collection
-      if (fVerbose) Printf("  have a collection %p",analKont);
+      if (fVerbose) Printf("  have a collection %p",subcollection);
       GetObjects(subcollection, list, collPrefix);
-      if (fVerbose) Printf("  destroying a collection %p",analKont);
+      if (fVerbose) Printf("  destroying a collection %p",subcollection);
 
     } else if (unpackedList) {
         //something implementing a custom method to unpack into a list
-        if (fVerbose) Printf("  using the custom unpacked list %p",analKont);
+        if (fVerbose) Printf("  using the custom unpacked list %p",unpackedList);
         GetObjects(unpackedList, list, collPrefix);
-        if (fVerbose) Printf("  destroying the custom unpacked list %p",analKont);
+        if (fVerbose) Printf("  destroying the custom unpacked list %p",unpackedList);
         delete unpackedList;
 
     } else {
