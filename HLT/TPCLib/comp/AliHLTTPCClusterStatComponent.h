@@ -16,14 +16,22 @@ class AliHLTTPCClusterXYZ;
 
 class AliHLTTPCClusterStatComponent : public AliHLTProcessor, public AliOptionParser
 {
- protected:
-  class AliHLTTPCTrackHelperStruct;
-
  public:
   /** standard constructor */
   AliHLTTPCClusterStatComponent();
   /** destructor */
   virtual ~AliHLTTPCClusterStatComponent();
+
+  struct AliHLTTPCTrackHelperStruct
+  {
+    int fID;
+    const AliHLTExternalTrackParam* fTrack;
+    float fResidualPad;
+    float fResidualTime;
+    bool fFirstHit;
+    long long int fAverageQMax;
+    long long int fAverageQTot;
+  };
 
   // interface methods of base class
   const char* GetComponentID() {return "TPCClusterStat";};
@@ -52,16 +60,6 @@ class AliHLTTPCClusterStatComponent : public AliHLTProcessor, public AliOptionPa
   int ProcessOption(TString option, TString value);
   
   
-  struct AliHLTTPCTrackHelperStruct
-  {
-    int fID;
-    const AliHLTExternalTrackParam* fTrack;
-    float fResidualPad;
-    float fResidualTime;
-    bool fFirstHit;
-    long long int fAverageQMax;
-    long long int fAverageQTot;
-  };
 
  private:
   /** copy constructor prohibited */
