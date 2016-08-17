@@ -105,6 +105,8 @@ AliHLTDataTopic fInfoTopic = kAliHLTDataTypeInfo;
 Int_t fRunNumber = 0;
 std::string fInfo;           //cache for the info string
 
+std::string fID;  //merger ID/name
+
 //internal state
 TMap fMergeObjectMap;        //map of the merged objects, all incoming stuff is merged into these
 TMap fMergeListMap;          //map with the lists of objects to be merged in
@@ -148,6 +150,7 @@ void* runTRIGthread(void*);
 const char* fUSAGE =
     "ZMQROOTmerger options: Merge() all ROOT mergeables in the message.\n"
     "merge based on what GetName() returns, the merged data can be retrieved at any time.\n"
+    " -id : some string identifier\n"
     " -in : data in, zmq config string, e.g. PUSH>tcp://localhost:123123\n"
     " -out : data out\n"
     " -mon : monitoring socket\n"
@@ -1037,6 +1040,10 @@ Int_t ProcessOptionString(TString arguments)
     else if (option.EqualTo("statefile"))
     {
       fInitFile = value.Data();
+    }
+    else if (option.EqualTo("id"))
+    {
+      fID = value.Data();
     }
     else
     {
