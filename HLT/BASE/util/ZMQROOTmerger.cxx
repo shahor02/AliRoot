@@ -1069,6 +1069,7 @@ Int_t ProcessOptionString(TString arguments)
     nOptions++;
   }
 
+  if (nOptions<1) fReconfigureZMQ=false;
   if (fReconfigureZMQ && (InitZMQ()<0)) {
     Printf("failed ZMQ init");
     return -1;
