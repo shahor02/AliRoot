@@ -73,6 +73,7 @@ TPRegexp* fUnSelectionRegexp = NULL;
 
 bool fgTerminationSignaled=false;
 int fNumberOfTObjectsInMessage=0;
+std::string fLoadLibs;
 
 ULong64_t iterations=0;
 
@@ -87,6 +88,7 @@ const char* fUSAGE =
     " -Verbose : be verbose\n"
     " -select : request selected objects by name with a (perl compatible-) regexp\n"
     " -unselect : as select, only inverted\n"
+    " -loadlibs : load ROOT libs, comma separated list\n"
     ;
 
 //_______________________________________________________________________________________
@@ -495,6 +497,10 @@ int ProcessOptionString(TString arguments)
       delete fUnSelectionRegexp;
       fUnSelectionRegexp=new TPRegexp(value);
     }
+    else if (option.EqualTo("loadlibs"))
+    {
+      fLoadLibs = value.Data();
+    }
     else
     {
       nOptions=-1;
@@ -503,6 +509,13 @@ int ProcessOptionString(TString arguments)
     nOptions++;
   }
   delete options; //tidy up
+
+  if (!fLoadLibs.empty()) {
+    if (LoadROOTlibs(fLoadLibs,fVerbose)<0) {
+      Printf("problem loading libraries %s",fLoadLibs.c_str());
+      nOptions=-1;
+    }
+  }
 
   return nOptions; 
 }

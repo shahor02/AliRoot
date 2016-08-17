@@ -93,6 +93,7 @@ Bool_t  fUnpackContainers = kFALSE;
 std::string fCustomUnpackMethodName = "GetListOfDrawableObjects";
 Bool_t  fCustomUnpackMethod = kFALSE;
 Bool_t  fFullyDestroyAnalysisDataContainer = kFALSE;
+std::string fLoadLibs;
 
 TPRegexp* fSendSelection = NULL;
 TPRegexp* fUnSendSelection = NULL;
@@ -142,6 +143,7 @@ void* fZMQout = NULL;        //the monitoring socket, here we publish a copy of 
 void* fZMQin  = NULL;        //the in socket - entry point for the data to be merged.
 void* fZMQsync = NULL;
 void* fZMQresetBroadcast = NULL;
+bool fReconfigureZMQ = true;
 
 //request trigger
 void* fZMQtrig = NULL; //dummy socket to trigger requests at constant time interval
@@ -191,6 +193,7 @@ const char* fUSAGE =
     " -CustomUnpackMethodName : name of the custom method to call to get a pointer to unpacked objects\n"
     " -IgnoreDefaultContainerNames : don't prefix default container names (TList,TObjArray)\n"
     " -FullyDestroyAnalysisDataContainer : explicitly delete consumers and producer members in the container to work around a memory leak\n"
+    " -loadlibs : load ROOT libs, comma separated list\n"
     " -statefile : save/restore state on exit/start\n"
     ;
 //_______________________________________________________________________________________
@@ -865,7 +868,6 @@ Int_t ProcessOptionString(TString arguments)
   //process passed options
   Int_t nOptions=0;
   aliStringVec* options = AliOptionParser::TokenizeOptionString(arguments);
-  bool reconfigureZMQ = false;
   for (aliStringVec::iterator i=options->begin(); i!=options->end(); ++i)
   {
     const TString& option = i->first;
@@ -906,17 +908,17 @@ Int_t ProcessOptionString(TString arguments)
     else if (option.EqualTo("ZMQconfigIN") || option.EqualTo("in"))
     {
       fZMQconfigIN = value;
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigOUT") || option.EqualTo("out"))
     {
       fZMQconfigOUT = value;
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigMON") || option.EqualTo("mon"))
     {
       fZMQconfigMON = value;
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQconfigSYNC") || option.EqualTo("sync"))
     {
@@ -927,7 +929,7 @@ Int_t ProcessOptionString(TString arguments)
         printf("sync socket has to be PUB or SUB!\n");
         return -1;
       }
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("Verbose"))
     {
@@ -940,12 +942,12 @@ Int_t ProcessOptionString(TString arguments)
     else if (option.EqualTo("ZMQmaxQueueSize"))
     {
       fZMQmaxQueueSize=value.Atoi();
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("ZMQtimeout"))
     {
       fZMQtimeout=value.Atoi();
-      reconfigureZMQ = true;
+      fReconfigureZMQ = true;
     }
     else if (option.EqualTo("request-period"))
     {
@@ -1054,6 +1056,10 @@ Int_t ProcessOptionString(TString arguments)
     {
       fID = value.Data();
     }
+    else if (option.EqualTo("loadlibs"))
+    {
+      fLoadLibs = value.Data();
+    }
     else
     {
       Printf("unrecognized option |%s|",option.Data());
@@ -1063,9 +1069,17 @@ Int_t ProcessOptionString(TString arguments)
     nOptions++;
   }
 
-  if (reconfigureZMQ && (InitZMQ()<0)) {
+  if (fReconfigureZMQ && (InitZMQ()<0)) {
     Printf("failed ZMQ init");
     return -1;
+  }
+  fReconfigureZMQ=false;
+
+  if (!fLoadLibs.empty()) {
+    if (LoadROOTlibs(fLoadLibs,fVerbose)<0) {
+      Printf("problem loading libraries %s",fLoadLibs.c_str());
+      nOptions=-1;
+    }
   }
 
   if (fRequestTimeout<100) printf("WARNING: setting the socket timeout to %lu ms can be dagerous,\n"
