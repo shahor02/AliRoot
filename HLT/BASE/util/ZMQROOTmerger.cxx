@@ -567,8 +567,9 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
       AliAnalysisDataContainer* container = dynamic_cast<AliAnalysisDataContainer*>(object);
       if (container) {
         //unpack an analysis data container
-        if (fVerbose) printf("unpacking analysis container %s %p\n", container->GetName(), container);
+        if (fVerbose) printf("unpacking analysis container with name %s %p\n", container->GetName(), container);
         GetObjects(container, &fListOfObjects);
+        if (fVerbose) printf("deleting analysis container with name %s %p\n", container->GetName(), container);
         delete container;
         break;
       }
@@ -577,8 +578,9 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
     if (TCollection* collection = dynamic_cast<TCollection*>(object)) {
       //unpack a collection
       if (fUnpackCollections) {
-        if (fVerbose) printf("unpacking collection %s %p\n", collection->GetName(), collection);
+        if (fVerbose) printf("unpacking collection with name %s %p\n", collection->GetName(), collection);
         GetObjects(collection, &fListOfObjects);
+        if (fVerbose) printf("deleting collection with name %s %p\n", collection->GetName(), collection);
         delete collection;
         break;
       } else {
