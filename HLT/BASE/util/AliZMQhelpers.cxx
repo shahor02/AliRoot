@@ -18,6 +18,7 @@
 #include "AliHLTMessage.h"
 #include "TStreamerInfo.h"
 #include "TClass.h"
+#include "TSystem.h"
 
 //init the shared context to null
 void* AliZMQhelpers::gZMQcontext = NULL;
@@ -1002,7 +1003,11 @@ vector<string> TokenizeString(const string input, const string delimiters)
   output.reserve(10);
   size_t start = 0;
   size_t end = input.find_first_of(delimiters);
-  do
+  if (end == string::npos)
+  {
+    output.push_back(input.substr(start, input.length()));
+  }
+  else do
   {
     output.push_back(input.substr(start, end-start));
     start = ++end;
@@ -1049,3 +1054,23 @@ std::string GetParamString(const std::string param, const std::string paramstrin
   return paramstring.substr(start,end-start);
 }
 
+
+//______________________________________________________________________________
+int LoadROOTlibs(string libString, bool verbose)
+{
+  //load specified libraries, return number of loaded libs or negative in case of error
+  int nLibs=0;
+  vector<string> libs = TokenizeString(libString, ",");
+  for (vector<string>::iterator i=libs.begin(); i!=libs.end(); ++i)
+  {
+    if (verbose) { printf("...loading %s", i->c_str()); }
+    if (gSystem->Load(i->c_str())<0) {
+      nLibs = -1;
+      if (verbose) { printf(" ERROR!\n"); }
+      break;
+    }
+    if (verbose) { printf(" OK\n"); }
+    nLibs++;
+  }
+  return nLibs;
+}
