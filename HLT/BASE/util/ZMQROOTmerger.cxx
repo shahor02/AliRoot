@@ -20,6 +20,7 @@
 #include "TCollection.h"
 #include "AliLog.h"
 #include "AliAnalysisDataContainer.h"
+#include "AliAnalysisTask.h"
 #include "TFile.h"
 #include "TKey.h"
 #include "TSystem.h"
@@ -91,6 +92,7 @@ Bool_t  fUnpackCollections = kFALSE;
 Bool_t  fUnpackContainers = kFALSE;
 std::string fCustomUnpackMethodName = "GetListOfDrawableObjects";
 Bool_t  fCustomUnpackMethod = kFALSE;
+Bool_t  fFullyDestroyAnalysisDataContainer = kFALSE;
 
 TPRegexp* fSendSelection = NULL;
 TPRegexp* fUnSendSelection = NULL;
@@ -188,6 +190,7 @@ const char* fUSAGE =
     " -UnpackCustom : use a custom method to unpack the objects (must return TCollection* AND must be in a collection)\n"
     " -CustomUnpackMethodName : name of the custom method to call to get a pointer to unpacked objects\n"
     " -IgnoreDefaultContainerNames : don't prefix default container names (TList,TObjArray)\n"
+    " -FullyDestroyAnalysisDataContainer : explicitly delete consumers and producer members in the container to work around a memory leak\n"
     " -statefile : save/restore state on exit/start\n"
     ;
 //_______________________________________________________________________________________
@@ -1037,6 +1040,10 @@ Int_t ProcessOptionString(TString arguments)
     {
       fIgnoreDefaultNamesWhenUnpacking = (value.Contains("0"))?kFALSE:kTRUE;
     }
+    else if (option.EqualTo("FullyDestroyAnalysisDataContainer"))
+    {
+      fFullyDestroyAnalysisDataContainer = (value.Contains("0"))?kFALSE:kTRUE;
+    }
     else if (option.EqualTo("statefile"))
     {
       fInitFile = value.Data();
@@ -1066,7 +1073,8 @@ Int_t ProcessOptionString(TString arguments)
   else if (fOnResetSendTo.EqualTo("in")) fZMQresetBroadcast = fZMQin;
   else if (fOnResetSendTo.EqualTo("mon")) fZMQresetBroadcast = fZMQmon;
   else if (fOnResetSendTo.EqualTo("out")) fZMQresetBroadcast = fZMQout;
-  if (fVerbose) printf("configured to bradcast on %s, socket %p\n", fOnResetSendTo.Data(), fZMQresetBroadcast);
+  if (fZMQresetBroadcast) printf("configured to bradcast resets on %s, socket %p\n", fOnResetSendTo.Data(), fZMQresetBroadcast);
+  if (fFullyDestroyAnalysisDataContainer) printf("configured to delete the fProducer/fConsumers of AliAnalysisDataContainer\n");
 
   delete options; //tidy up
 
@@ -1143,6 +1151,24 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
   std::string kontPrefix = prefix + kontName;
 
   TObject* analData = kont->GetData();
+
+  if (fFullyDestroyAnalysisDataContainer) {
+    AliAnalysisTask* producer = kont->GetProducer();
+    TObjArray* consumers = kont->GetConsumers();
+    if (fVerbose) {
+      printf("container %s has producer: %s(%p), consumers: %p, data: %p\n,  "
+             "deleting producer/consumers\n",kontName.c_str(),
+             (producer)?producer->GetName():"", producer, consumers, analData);
+    }
+    if (consumers) {
+      consumers->SetOwner(kTRUE);
+      delete consumers;
+    }
+    if (producer) {
+      delete producer;
+    }
+  }
+
   if (TCollection* collection = dynamic_cast<TCollection*>(analData)) {
     //a collection
     if (fVerbose) Printf("  have a collection %p",collection);
