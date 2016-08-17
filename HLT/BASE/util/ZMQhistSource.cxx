@@ -46,8 +46,9 @@ int fHistNBins = 100;
 aliZMQrootStreamerInfo* fSchema = NULL;
 bool fVerbose = false;
 int fCompression = 0;
-TObjArray* fCollection = NULL;
+TList* fCollection = NULL;
 AliAnalysisDataContainer* fAnalContainer = NULL;
+TObjArray* fAnalComponentContainer = NULL;
 
 const char* fUSAGE =
     "ZMQhstSource: send a randomly filled ROOT histogram\n"
@@ -64,7 +65,7 @@ const char* fUSAGE =
     " -schema : include the streamer infos in the message\n"
     " -run : run number\n"
     " -collection : wrap all histograms in a TObjArray\n"
-    " -analysisContainer : wrap the collection in an AliAnalysisDataContainer\n"
+    " -analysisContainer : wrap the collection in an AliAnalysisDataContainer inside TObjArray like online\n"
     //" -compression : compression level (0|1)\n"
     ;
 
@@ -93,7 +94,7 @@ int main(int argc, char** argv)
   {
     stringstream ss;
     ss << fHistName.Data();
-    if (i>0) ss << i;
+    ss << i;
     TH1F* hist = new TH1F(ss.str().c_str(), ss.str().c_str(), fHistNBins, fHistRangeLow, fHistRangeHigh);
     hist->SetXTitle("x title");
     fHistograms.push_back(hist);
@@ -146,15 +147,15 @@ int main(int argc, char** argv)
     }
 
     aliZMQmsg message;
-    if (fCollection && !fAnalContainer)
+    if (fCollection && !fAnalComponentContainer)
     {
       rc = alizmq_msg_add(&message, &topic, fCollection, fCompression, fSchema);
       if (rc < 0)
         printf("unable to send\n");
     }
-    else if (fCollection && fAnalContainer)
+    else if (fCollection && fAnalComponentContainer)
     {
-      rc = alizmq_msg_add(&message, &topic, fAnalContainer, fCompression, fSchema);
+      rc = alizmq_msg_add(&message, &topic, fAnalComponentContainer, fCompression, fSchema);
       if (rc < 0)
         printf("unable to send\n");
     }
@@ -217,14 +218,16 @@ int ProcessOptionString(TString arguments)
     }
     else if (option.EqualTo("collection"))
     {
-      fCollection = new TObjArray(100);
-      fCollection->SetName("exampleContainer1");
+      if (!fCollection) fCollection = new TList();
+      //fCollection->SetName("exampleContainer1");
       fCollection->SetOwner(kTRUE);
     }
     else if (option.EqualTo("analysisContainer"))
     {
       fAnalContainer = new AliAnalysisDataContainer("container",TObjArray::Class());
-      if (!fCollection) fCollection = new TObjArray(100);
+      fAnalComponentContainer = new TObjArray(1);
+      fAnalComponentContainer->Add(fAnalContainer);
+      if (!fCollection) fCollection = new TList();
       fCollection->SetOwner(kTRUE);
     }
     else if (option.EqualTo("range"))
