@@ -89,28 +89,6 @@ int alizmq_msg_send(const AliHLTDataTopic& topic, const std::string& data, void*
 void alizmq_deleteTObject(void*, void* object);
 void alizmq_deleteTopic(void*, void* object);
 
-//simple zmq multi part message class
-//behaves like a map.
-//this is to simplify receiving/sending multipart msgs
-//and to handle message destruction automatically
-//keep it simple!
-//class AliZMQmsg {
-//public:
-//  AliZMQmsg() {}
-//  ~AliZMQmsg() {}
-//  int Receive(void* socket) {return 0;}
-//  int Send(void* socket) {return 0;}
-//  void Add(zmq_msg_t* topic, zmq_msg_t* data) {}
-//
-//  //define (delegate) iterators
-//  typedef aliZMQmsg::iterator iterator;
-//  typedef aliZMQmsg::const_iterator const_iterator;
-//  iterator begin() { return fMessage.begin(); }
-//  iterator end() { return fMessage.end(); }
-//private:
-//  aliZMQmsg fMessage;
-//};
-
 //simple option parser class
 class AliOptionParser {
 public:
