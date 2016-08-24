@@ -1267,6 +1267,7 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
         GetObjects(unpackedList, list, collPrefix);
         if (fVerbose) Printf("  destroying the custom unpacked list %p",unpackedList);
         delete unpackedList;
+        delete tmp; //after unpacking we destroy the object
 
     } else {
       //..or just an object
@@ -1295,6 +1296,9 @@ TCollection* UnpackToCollection(TObject* object, std::string method)
 {
   //this will call method (which MUST return a pointer to TCollection*
   //and take no arguments
+  if (fVerbose) {
+    printf("custom unpacking of %s(%s) at %p\n",object->GetName(),object->ClassName(), object);
+  }
   TMethod* tmethod = object->IsA()->GetMethodWithPrototype(fCustomUnpackMethodName.c_str(), "");
   if (!tmethod) return NULL;
   std::string returnType = tmethod->GetReturnTypeName();
