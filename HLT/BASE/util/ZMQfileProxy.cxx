@@ -450,7 +450,7 @@ int DumpToFile(TObject* object, std::string name)
   if (fVerbose) Printf("opening file: %s", fFileName.Data());
   if (!fFile) fFile = new TFile(fFileName,fileMode);
   if (fVerbose) Printf("writing object %s to %s",name.c_str(), fFileName.Data());
-  int rc = object->Write(name.c_str(),TObject::kOverwrite);
+  int rc = object->Write(name.c_str(),TObject::kOverwrite|TObject::kSingleKey);
   return rc;
 }
 
