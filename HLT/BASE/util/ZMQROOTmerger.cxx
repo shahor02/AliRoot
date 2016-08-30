@@ -39,7 +39,7 @@
 using namespace AliZMQhelpers;
 
 //methods
-Int_t ProcessOptionString(TString arguments);
+Int_t ProcessOptionString(TString arguments, Bool_t verbose=kFALSE);
 Int_t InitZMQ();
 Int_t Run();
 
@@ -865,7 +865,7 @@ Int_t Merge(TObject* object, TCollection* mergeList)
 }
 
 //______________________________________________________________________________
-Int_t ProcessOptionString(TString arguments)
+Int_t ProcessOptionString(TString arguments, Bool_t verbose)
 {
   //process passed options
   Int_t nOptions=0;
@@ -1085,17 +1085,25 @@ Int_t ProcessOptionString(TString arguments)
     }
   }
 
-  if (fRequestTimeout<100) printf("WARNING: setting the socket timeout to %lu ms can be dagerous,\n"
-      "         choose something more realistic or leave the default as it is\n", fRequestTimeout);
-
   if (fOnResetSendTo.IsNull()) fZMQresetBroadcast = NULL;
   else if (fOnResetSendTo.EqualTo("in")) fZMQresetBroadcast = fZMQin;
   else if (fOnResetSendTo.EqualTo("mon")) fZMQresetBroadcast = fZMQmon;
   else if (fOnResetSendTo.EqualTo("out")) fZMQresetBroadcast = fZMQout;
-  if (fZMQresetBroadcast) printf("configured to bradcast resets on %s, socket %p\n", fOnResetSendTo.Data(), fZMQresetBroadcast);
-  if (fFullyDestroyAnalysisDataContainer) printf("configured to delete the fProducer/fConsumers of AliAnalysisDataContainer\n");
 
   delete options; //tidy up
+
+  if (verbose)
+  {
+    if (fRequestTimeout<100) printf("WARNING: setting the socket timeout to %lu ms can be dagerous,\n"
+        "         choose something more realistic or leave the default as it is\n", fRequestTimeout);
+
+    if (fZMQresetBroadcast) printf("configured to bradcast resets on %s, socket %p\n", fOnResetSendTo.Data(), fZMQresetBroadcast);
+    if (fFullyDestroyAnalysisDataContainer) printf("configured to delete the fProducer/fConsumers of AliAnalysisDataContainer\n");
+    if (fIgnoreDefaultNamesWhenUnpacking) printf("ignoring default cont names\n");
+    if (fUnpackContainers) printf("unpacking containers\n");
+    if (fUnpackCollections) printf("unpacking collections\n");
+    if (fCustomUnpackMethod) printf("using a custom unpacking method: %s\n", fCustomUnpackMethodName.c_str());
+  }
 
   return nOptions;
 }
@@ -1124,7 +1132,7 @@ int main(Int_t argc, char** argv)
 
   //process args
   TString argString = AliOptionParser::GetFullArgString(argc,argv);
-  if (ProcessOptionString(argString)<=0)
+  if (ProcessOptionString(argString, kTRUE)<=0)
   {
     printf("%s",fUSAGE);
     return 1;
