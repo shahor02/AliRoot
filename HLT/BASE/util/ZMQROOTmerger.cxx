@@ -1190,9 +1190,9 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
 
   if (TCollection* collection = dynamic_cast<TCollection*>(analData)) {
     //a collection
-    if (fVerbose) Printf("  have a collection %p",collection);
+    if (fVerbose) Printf("  have a collection %s %p",collection->GetName(),collection);
     GetObjects(collection, list, kontPrefix);
-    if (fVerbose) printf("  destroying collection %p\n",collection);
+    if (fVerbose) printf("  destroying collection %s %p\n",collection->GetName(),collection);
     delete collection;
     kont->SetDataOwned(kFALSE);
 
@@ -1249,16 +1249,17 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
 
     if (analKont) {
       //analysis container
-      if (fVerbose) Printf("  have an analysis container %p",analKont);
+      if (fVerbose) Printf("  have an analysis container %s %p",analKont->GetName(), analKont);
       GetObjects(analKont,list,collPrefix);
-      if (fVerbose) printf("  destroying anal container %p\n",analKont);
+      if (fVerbose) printf("  destroying anal container %s %p\n",analKont->GetName(), analKont);
       delete analKont;
 
     } else if (subcollection) {
       //embedded collection
-      if (fVerbose) Printf("  have a collection %p",subcollection);
+      if (fVerbose) Printf("  have a subcollection %s %p",subcollection->GetName(), subcollection);
       GetObjects(subcollection, list, collPrefix);
-      if (fVerbose) Printf("  destroying a collection %p",subcollection);
+      if (fVerbose) Printf("  destroying a subcollection %s %p",subcollection->GetName(), subcollection);
+      delete subcollection;
 
     } else if (unpackedList) {
         //something implementing a custom method to unpack into a list
