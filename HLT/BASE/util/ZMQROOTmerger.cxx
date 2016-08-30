@@ -1312,6 +1312,7 @@ TCollection* UnpackToCollection(TObject* object, std::string method)
   char* ret = NULL;
   mc->Execute(object,&ret);
   TCollection* collection = reinterpret_cast<TCollection*>(ret);
+  delete mc;
   return collection;
 }
 
