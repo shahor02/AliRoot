@@ -24,7 +24,7 @@
 #include "TTimeStamp.h"
 #include "TSystem.h"
 #include "TObjArray.h"
-#include "AliAnalysisDataContainer.h"
+#include "AliHLTObjArray.h"
 
 using namespace AliZMQhelpers;
 
@@ -49,7 +49,7 @@ aliZMQrootStreamerInfo* fSchema = NULL;
 bool fVerbose = false;
 int fCompression = 0;
 TList* fCollection = NULL;
-AliAnalysisDataContainer* fAnalContainer = NULL;
+AliHLTObjArray* fAnalContainer = NULL;
 TObjArray* fAnalComponentContainer = NULL;
 
 const char* fUSAGE =
@@ -67,7 +67,7 @@ const char* fUSAGE =
     " -schema : include the streamer infos in the message\n"
     " -run : run number\n"
     " -collection : wrap all histograms in a TObjArray\n"
-    " -analysisContainer : wrap the collection in an AliAnalysisDataContainer inside TObjArray like online\n"
+    " -analysisContainer : wrap the collection in an AliHLTObjArray inside TObjArray like online\n"
     //" -compression : compression level (0|1)\n"
     ;
 
@@ -112,7 +112,7 @@ int main(int argc, char** argv)
 
   if (fCollection && fAnalContainer)
   {
-    fAnalContainer->SetData(fCollection);
+    fAnalContainer->Add(fCollection);
   }
 
   if (fSchema) {
@@ -226,7 +226,7 @@ int ProcessOptionString(TString arguments)
     }
     else if (option.EqualTo("analysisContainer"))
     {
-      fAnalContainer = new AliAnalysisDataContainer("container",TObjArray::Class());
+      fAnalContainer = new AliHLTObjArray(1);
       fAnalComponentContainer = new TObjArray(1);
       fAnalComponentContainer->Add(fAnalContainer);
       if (!fCollection) fCollection = new TList();
