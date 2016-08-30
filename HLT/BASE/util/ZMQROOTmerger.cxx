@@ -1079,7 +1079,7 @@ Int_t ProcessOptionString(TString arguments, Bool_t verbose)
   fReconfigureZMQ=false;
 
   if (!fLoadLibs.empty()) {
-    if (LoadROOTlibs(fLoadLibs,fVerbose)<0) {
+    if (LoadROOTlibs(fLoadLibs,verbose)<0) {
       Printf("problem loading libraries %s",fLoadLibs.c_str());
       nOptions=-1;
     }
