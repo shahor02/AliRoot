@@ -25,6 +25,7 @@
 #include "TSystem.h"
 #include "TObjArray.h"
 #include "AliHLTObjArray.h"
+#include "AliOptionParser.h"
 
 using namespace AliZMQhelpers;
 
