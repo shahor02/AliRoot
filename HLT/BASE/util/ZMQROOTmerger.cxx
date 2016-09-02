@@ -1230,7 +1230,8 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
 Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::string prefix)
 {
   std::string collName = collection->GetName();
-  if (fIgnoreDefaultNamesWhenUnpacking && ( collName=="TObjArray" || collName=="TList" )) {
+  if (fIgnoreDefaultNamesWhenUnpacking && ( collName=="TObjArray" || collName=="TList" || 
+                                            collName=="AliHLTObjArray" || collName=="AliHLTList")) {
     collName = "";
   } else {
     collName+="/";
