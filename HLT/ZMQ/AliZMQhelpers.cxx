@@ -438,7 +438,7 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, TO
 //_______________________________________________________________________________________
 int AliZMQhelpers::alizmq_msg_send(aliZMQmsg* message, void* socket, int flagsUser)
 {
-  int nBytes=0;
+  int nBytes = 0;
   int rc = 0;
   int flags = flagsUser | ZMQ_SNDMORE;
  
@@ -463,6 +463,7 @@ int AliZMQhelpers::alizmq_msg_send(aliZMQmsg* message, void* socket, int flagsUs
 //_______________________________________________________________________________________
 int AliZMQhelpers::alizmq_msg_send(std::string topic, std::string data, void* socket, int flags)
 {
+  int nBytes = 0;
   int rc = 0;
   zmq_msg_t topicMsg;
   zmq_msg_init_size(&topicMsg, topic.size());
@@ -474,6 +475,7 @@ int AliZMQhelpers::alizmq_msg_send(std::string topic, std::string data, void* so
     zmq_msg_close(&topicMsg);
     return rc;
   }
+  nBytes+=rc;
 
   zmq_msg_t dataMsg;
   zmq_msg_init_size(&dataMsg, data.size());
@@ -485,7 +487,8 @@ int AliZMQhelpers::alizmq_msg_send(std::string topic, std::string data, void* so
     zmq_msg_close(&dataMsg);
     return rc;
   }
-  return rc;
+  nBytes+=rc;
+  return nBytes;
 }
 
 //_______________________________________________________________________________________
@@ -615,6 +618,7 @@ int AliZMQhelpers::alizmq_msg_iter_init_streamer_infos(aliZMQmsg::iterator it)
 int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void* socket, int flags, 
                     int compression, aliZMQrootStreamerInfo* streamers)
 {
+  int nBytes = 0;
   int rc = 0;
 
   AliHLTMessage* tmessage = AliHLTMessage::Stream(object, compression);
@@ -634,6 +638,7 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void
     //printf("unable to send topic: %s %s\n", topic.Description().c_str(), zmq_strerror(errno));
     return rc;
   }
+  nBytes += rc;
 
   //send the object itself
   rc = zmq_msg_send(&dataMsg, socket, flags);
@@ -643,12 +648,14 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void
     zmq_msg_close(&dataMsg);
     return rc;
   }
-  return rc;
+  nBytes += rc;
+  return nBytes;
 }
 
 //______________________________________________________________________________
 int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, const std::string& data, void* socket, int flags)
 {
+  int nBytes = 0;
   int rc = 0;
   rc = zmq_send( socket, &topic, sizeof(topic), ZMQ_SNDMORE );
   if (rc<0) 
@@ -656,6 +663,7 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, const std::string& da
     //printf("unable to send topic: %s %s\n", topic.Description().c_str(), zmq_strerror(errno));
     return rc;
   }
+  nBytes += rc;
 
   zmq_msg_t dataMsg;
   zmq_msg_init_size(&dataMsg, data.size());
@@ -667,7 +675,8 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, const std::string& da
     zmq_msg_close(&dataMsg);
     return rc;
   }
-  return rc;
+  nBytes = rc;
+  return nBytes;
 }
 
 //______________________________________________________________________________
@@ -803,7 +812,7 @@ int AliZMQhelpers::alizmq_msg_copy(aliZMQmsg* dst, aliZMQmsg* src)
 int AliZMQhelpers::alizmq_msg_recv(aliZMQmsg* message, void* socket, int flags)
 {
   int rc = -1;
-  int receiveStatus=0;
+  int nBytes=0;
   while (true)
   {
     zmq_msg_t* topicMsg = new zmq_msg_t;
@@ -813,10 +822,10 @@ int AliZMQhelpers::alizmq_msg_recv(aliZMQmsg* message, void* socket, int flags)
     {
       zmq_msg_close(topicMsg);
       delete topicMsg;
-      receiveStatus=-1;
+      nBytes=-1;
       break;
     }
-    receiveStatus+=rc;
+    nBytes+=rc;
 
     zmq_msg_t* dataMsg = new zmq_msg_t;
     rc = zmq_msg_init(dataMsg);
@@ -827,10 +836,10 @@ int AliZMQhelpers::alizmq_msg_recv(aliZMQmsg* message, void* socket, int flags)
       zmq_msg_close(dataMsg);
       delete topicMsg;
       delete dataMsg;
-      receiveStatus=-1;
+      nBytes=-1;
       break;
     }
-    receiveStatus+=rc;
+    nBytes+=rc;
 
     message->push_back(std::make_pair(topicMsg,dataMsg));
 
@@ -839,38 +848,38 @@ int AliZMQhelpers::alizmq_msg_recv(aliZMQmsg* message, void* socket, int flags)
     rc = zmq_getsockopt(socket, ZMQ_RCVMORE, &more, &moreLength);
     if (!more) break;
   }
-  return receiveStatus;
+  return nBytes;
 }
 
 //_______________________________________________________________________________________
 int AliZMQhelpers::alizmq_msg_recv(aliZMQmsgStr* message, void* socket, int flags)
 {
   int rc = -1;
-  int receiveStatus=0;
+  int nBytes=0;
   while (true)
   {
     zmq_msg_t topicMsg;
     rc = zmq_msg_init(&topicMsg);
     rc = zmq_msg_recv(&topicMsg, socket, flags);
-    if (!zmq_msg_more(&topicMsg) || receiveStatus<0)
+    if (!zmq_msg_more(&topicMsg) || nBytes<0)
     {
       zmq_msg_close(&topicMsg);
-      receiveStatus=-1;
+      nBytes=-1;
       break;
     }
-    receiveStatus+=rc;
+    nBytes+=rc;
 
     zmq_msg_t dataMsg;
     rc = zmq_msg_init(&dataMsg);
     rc = zmq_msg_recv(&dataMsg, socket, flags);
-    if (receiveStatus<0)
+    if (nBytes<0)
     {
       zmq_msg_close(&topicMsg);
       zmq_msg_close(&dataMsg);
-      receiveStatus=-1;
+      nBytes=-1;
       break;
     }
-    receiveStatus+=rc;
+    nBytes+=rc;
 
     std::string data;
     std::string topic;
@@ -887,7 +896,7 @@ int AliZMQhelpers::alizmq_msg_recv(aliZMQmsgStr* message, void* socket, int flag
     rc = zmq_getsockopt(socket, ZMQ_RCVMORE, &more, &moreLength);
     if (!more) break;
   }
-  return receiveStatus;
+  return nBytes;
 }
 
 //______________________________________________________________________________
