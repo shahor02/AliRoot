@@ -133,8 +133,8 @@ unsigned long long fLastPushBackTime = 0;
 unsigned long long fLastRequestTime = 0;
 struct timeval fCurrentTimeStruct;
 
-unsigned long fBytesIN = 0;
-unsigned long fBytesOUT = 0;
+double fBytesIN = 0;
+double fBytesOUT = 0;
 unsigned long fSecondsStart = 0;
 unsigned long fSecondsStop = 0;
 
