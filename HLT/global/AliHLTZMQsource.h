@@ -1,14 +1,14 @@
 #ifndef __AliHLTZMQsource__
 #define __AliHLTZMQsource__
-//* This file is property of and copyright by the                          * 
+//* This file is property of and copyright by the                          *
 //* ALICE Experiment at CERN, All rights reserved.                         *
 //* See cxx source for full Copyright notice                               *
 
 //  @file   AliHLTZMQsource.h
 //  @author Mikolaj Krzewicki, mikolaj.krzewicki@cern.ch
-//  @date   
+//  @date
 //  @brief  An HLT ZMQ data source component.
-// 
+//
 
 #include "AliHLTComponent.h"
 #include "AliZMQhelpers.h"
@@ -39,9 +39,9 @@ class AliHLTZMQsource : public AliHLTComponent, public AliOptionParser  {
     int DoDeinit();
 
     int DoProcessing( const AliHLTComponentEventData& evtData,
-                      const AliHLTComponentBlockData* blocks, 
+                      const AliHLTComponentBlockData* blocks,
                       AliHLTComponentTriggerData& trigData,
-                      AliHLTUInt8_t* outputPtr, 
+                      AliHLTUInt8_t* outputPtr,
                       AliHLTUInt32_t& size,
                       AliHLTComponentBlockDataList& outputBlocks,
                       AliHLTComponentEventDoneData*& edd );

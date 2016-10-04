@@ -44,53 +44,68 @@ struct AliHLTDataTopic : public DataTopic
   AliHLTDataTopic(const AliHLTComponentDataType& dataType)
     : DataTopic()
   {
-    memcpy( fTopic, dataType.fID, kAliHLTComponentDataTypefIDsize );
-    memcpy( fTopic+kAliHLTComponentDataTypefIDsize, dataType.fOrigin, kAliHLTComponentDataTypefOriginSize );
+    SetID(dataType.fID);
+    SetOrigin(dataType.fOrigin);
   }
 
   //copy ctor
   AliHLTDataTopic(const AliHLTComponentBlockData& blockData)
     : DataTopic()
   {
-    fSpecification = blockData.fSpecification;
-    memcpy( fTopic, blockData.fDataType.fID, kAliHLTComponentDataTypefIDsize );
-    memcpy( fTopic+kAliHLTComponentDataTypefIDsize, blockData.fDataType.fOrigin, kAliHLTComponentDataTypefOriginSize );
+    SetSpecification(blockData.fSpecification);
+    SetID(blockData.fDataType.fID);
+    SetOrigin(blockData.fDataType.fOrigin);
+    if (strncmp(blockData.fDataType.fID,"ROOT",4)==0) {
+      SetSerialization(kSerializationROOT);
+    }
   }
 
   //partial (no fSpecification) copy from AliHLTComponentDataType
   AliHLTDataTopic& operator=( const AliHLTComponentDataType& dataType )
   {
-    memcpy( fTopic, dataType.fID, kAliHLTComponentDataTypefIDsize );
-    memcpy( fTopic+kAliHLTComponentDataTypefIDsize, dataType.fOrigin, kAliHLTComponentDataTypefOriginSize );
+    SetID(dataType.fID);
+    SetOrigin(dataType.fOrigin);
     return *this;
   }
 
   //assignment from a AliHLTComponentBlockData
   AliHLTDataTopic& operator=( const AliHLTComponentBlockData& blockData )
   {
-    memcpy( fTopic, blockData.fDataType.fID, kAliHLTComponentDataTypefIDsize );
-    memcpy( fTopic+kAliHLTComponentDataTypefIDsize, blockData.fDataType.fOrigin, kAliHLTComponentDataTypefOriginSize );
-    fSpecification = blockData.fSpecification;
+    SetSpecification(blockData.fSpecification);
+    SetID(blockData.fDataType.fID);
+    SetOrigin(blockData.fDataType.fOrigin);
+    if (strncmp(blockData.fDataType.fID,"ROOT",4)==0) {
+      SetSerialization(kSerializationROOT);
+    }
     return *this;
   }
 
   bool operator==( const AliHLTDataTopic& dt )
   {
-    bool topicMatch = Topicncmp(dt.fTopic, fTopic);
+    bool topicMatch =  Topicncmp(dt.GetIDstr(),GetIDstr());
     return topicMatch;
+  }
+
+  bool operator==( const AliHLTComponentDataType& dataType)
+  {
+    AliHLTComponentDataType dt;
+    memcpy(dt.fID, &fDataDescription[2], kAliHLTComponentDataTypefIDsize);
+    memcpy(dt.fOrigin, &fDataOrigin, kAliHLTComponentDataTypefIDsize);
+    return dt==dataType;
   }
 
   void Fill(AliHLTComponentDataType& dt)
   {
-    memcpy( dt.fID, &fTopic[0], kAliHLTComponentDataTypefIDsize );
-    memcpy( dt.fOrigin, &fTopic[kAliHLTComponentDataTypefIDsize], kAliHLTComponentDataTypefOriginSize );
+    memcpy( dt.fID, &fDataDescription[1], kAliHLTComponentDataTypefIDsize );
+    memcpy( dt.fOrigin, &fDataOrigin, kAliHLTComponentDataTypefOriginSize );
   }
 
 };
 
 
 int alizmq_msg_iter_check_id(aliZMQmsg::iterator it, const AliHLTDataTopic& topic);
-int alizmq_msg_send(const AliHLTDataTopic& topic, TObject* object, void* socket, int flags, int compression=0, aliZMQrootStreamerInfo* streamers=NULL);
+int alizmq_msg_send(const AliHLTDataTopic& topic, TObject* object, void* socket, int flags,
+                    int compression=0, aliZMQrootStreamerInfo* streamers=NULL);
 int alizmq_msg_send(const AliHLTDataTopic& topic, const std::string& data, void* socket, int flags);
 
 }  //end namespace AliZMQhelpers

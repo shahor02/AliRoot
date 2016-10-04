@@ -1,7 +1,7 @@
 // $Id$
 
 ///**************************************************************************
-///* This file is property of and copyright by the                          * 
+///* This file is property of and copyright by the                          *
 ///* ALICE Experiment at CERN, All rights reserved.                         *
 ///*                                                                        *
 ///* Primary Authors: Mikolaj Krzewicki, mikolaj.krzewicki@cern.ch          *
@@ -17,7 +17,7 @@
 
 /// @file   AliHLTZMQsource.cxx
 /// @author Mikolaj Krzewicki
-/// @date   
+/// @date
 /// @brief  HLT ZMQ component implementation. */
 ///
 
@@ -120,8 +120,8 @@ int AliHLTZMQsource::DoInit( int argc, const char** argv )
   HLTMessage(Form("ctx create rc %i %p errno %i",rc,fZMQcontext,errno));
 
   //init ZMQ socket
-  rc = alizmq_socket_init(fZMQin, fZMQcontext, fZMQinConfig.Data(), 0, 10 ); 
-  if (!fZMQin || rc<0) 
+  rc = alizmq_socket_init(fZMQin, fZMQcontext, fZMQinConfig.Data(), 0, 10 );
+  if (!fZMQin || rc<0)
   {
     HLTError("cannot initialize ZMQ socket %s, %s",fZMQinConfig.Data(),zmq_strerror(errno));
     return -1;
@@ -129,7 +129,7 @@ int AliHLTZMQsource::DoInit( int argc, const char** argv )
 
   //subscribe
   rc = zmq_setsockopt(fZMQin, ZMQ_SUBSCRIBE, fMessageFilter.Data(), fMessageFilter.Length());
-  
+
   HLTMessage(Form("socket create ptr %p %s",fZMQin,(rc<0)?zmq_strerror(errno):""));
   HLTMessage(Form("ZMQ connected to: %s rc %i %s",fZMQinConfig.Data(),rc,(rc<0)?zmq_strerror(errno):""));
 
@@ -147,9 +147,9 @@ int AliHLTZMQsource::DoDeinit()
 
 //______________________________________________________________________________
 int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
-                  const AliHLTComponentBlockData* blocks, 
+                  const AliHLTComponentBlockData* blocks,
                   AliHLTComponentTriggerData& /*trigData*/,
-                  AliHLTUInt8_t* outputBuffer, 
+                  AliHLTUInt8_t* outputBuffer,
                   AliHLTUInt32_t& outputBufferSize,
                   AliHLTComponentBlockDataList& outputBlocks,
                   AliHLTComponentEventDoneData*& edd )
@@ -172,10 +172,10 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
   {
     for (int iBlock = 0;
         iBlock < evtData.fBlockCnt;
-        iBlock++) 
+        iBlock++)
     {
       outputBlocks.push_back(blocks[iBlock]);
-    }  
+    }
   }
 
   int blockTopicSize=-1;
@@ -193,7 +193,7 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
     //wait for reply
     zmq_pollitem_t sockets[] = { {fZMQin, 0, ZMQ_POLLIN, 0} };
     rc = zmq_poll( sockets, 1, fZMQrequestTimeout );
-    if (rc==-1) 
+    if (rc==-1)
     {
       HLTImportant("request interrupted");
       //interrupted, stop processing
@@ -203,13 +203,13 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
     {
       //if we got no reply reset the connection, probably source died
       HLTImportant("request timed out after %i us",fZMQrequestTimeout);
-      rc = alizmq_socket_init(fZMQin, fZMQcontext, fZMQinConfig.Data(), 0, 10 ); 
-      if (rc<0) 
+      rc = alizmq_socket_init(fZMQin, fZMQcontext, fZMQinConfig.Data(), 0, 10 );
+      if (rc<0)
       {
         HLTError("cannot reinitialize ZMQ socket %s, %s",fZMQinConfig.Data(),zmq_strerror(errno));
         return -1;
       }
-      
+
       //just return normally
       return 0;
     }
@@ -224,7 +224,7 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
     outputBufferCapacity -= blockSize;
     outputBufferSize += blockSize;
     block = outputBuffer + outputBufferSize;
-    
+
     //get (fill) the block topic
     blockTopicSize = zmq_recv (fZMQin, &blockTopic, sizeof(blockTopic), (fZMQneverBlock)?ZMQ_DONTWAIT:0);
     if (blockTopicSize<0 && errno==EAGAIN) break; //nothing on the socket
@@ -243,15 +243,15 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
 
     //if we subscribe AND the body is empty skip the first frame as it is just a subscription topic
     //TODO: rethink this logic
-    if (frameNumber==1 && 
-        fZMQsocketType==ZMQ_SUB && 
-        !fMessageFilter.IsNull() && 
+    if (frameNumber==1 &&
+        fZMQsocketType==ZMQ_SUB &&
+        !fMessageFilter.IsNull() &&
         blockSize <= 0 ) continue;
 
     if (blockTopicSize <= 0) continue; //empty header, dont push back
 
     HLTMessage(Form("pushing back %s, %i bytes", blockTopic.Description().c_str(), blockSize));
-    
+
     //prepare the component block data descriptor
     AliHLTComponentBlockData blockHeader; FillBlockData(blockHeader);
     blockHeader.fPtr      = outputBuffer;
@@ -259,11 +259,11 @@ int AliHLTZMQsource::DoProcessing( const AliHLTComponentEventData& evtData,
     blockHeader.fSize     = blockSize;
     blockTopic.Fill(blockHeader.fDataType);
     blockHeader.fSpecification = blockTopic.fSpecification;
-    
+
     //register the block in the output buffer list
     outputBlocks.push_back(blockHeader);
   } while (more==1);
-  
+
   edd=NULL;
   return retCode;
 }
@@ -273,7 +273,7 @@ int AliHLTZMQsource::ProcessOption(TString option, TString value)
 {
   //process option
   //to be implemented by the user
-  
+
   if (option.EqualTo("in"))
   {
     fZMQinConfig = value;
@@ -320,6 +320,6 @@ int AliHLTZMQsource::ProcessOption(TString option, TString value)
     return -1;
   }
 
-  return 1; 
+  return 1;
 }
 

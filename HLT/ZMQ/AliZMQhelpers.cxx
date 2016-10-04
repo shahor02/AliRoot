@@ -36,6 +36,11 @@ using namespace AliZMQhelpers;
 //init the shared context to null
 void* AliZMQhelpers::gZMQcontext = NULL;
 
+const uint32_t AliZMQhelpers::BaseDataTopic::fgkMagicNumber = CharArr2uint32("O2O2");
+const uint64_t AliZMQhelpers::DataTopic::fgkDataTopicDescription = CharArr2uint64("DataHDR");
+const uint32_t AliZMQhelpers::DataTopic::fgkTopicSerialization = CharArr2uint64("NONE");
+const uint64_t AliZMQhelpers::kSerializationROOT = CharArr2uint64("ROOT   ");
+
 //_______________________________________________________________________________________
 void* AliZMQhelpers::alizmq_context()
 {
@@ -164,7 +169,7 @@ int AliZMQhelpers::alizmq_socket_type(std::string config)
   else if (config.compare(0,4,"PAIR")==0) return ZMQ_PAIR;
   else if (config.compare(0,4,"XSUB")==0) return ZMQ_XSUB;
   else if (config.compare(0,4,"XPUB")==0) return ZMQ_XPUB;
-  
+
   //printf("Invalid socket type %s\n", config.c_str());
   return -1;
 }
@@ -223,9 +228,9 @@ int AliZMQhelpers::alizmq_socket_init(void*& socket, void* context, std::string 
     //printf("misformed socket config string %s\n", config.c_str());
     return -1;
   }
-  
+
   zmqSocketMode = alizmq_socket_type(config);
-  
+
   if (found!=std::string::npos)
   { zmqEndpoints=config.substr(found,std::string::npos); }
 
@@ -236,7 +241,7 @@ int AliZMQhelpers::alizmq_socket_init(void*& socket, void* context, std::string 
     newSocket=false;
     int lingerValue = 10;
     rc = zmq_setsockopt(socket, ZMQ_LINGER, &lingerValue, sizeof(lingerValue));
-    if (rc!=0) 
+    if (rc!=0)
     {
       //printf("cannot set linger 0 on socket before closing\n");
       return -2;
@@ -277,7 +282,7 @@ int AliZMQhelpers::alizmq_socket_init(void*& socket, void* context, std::string 
     if ( rc==0 || newSocket ) break;
     usleep(100000);
   }
-  if (rc!=0) 
+  if (rc!=0)
   {
     //printf("cannot attach to %s\n",zmqEndpoints.c_str());
     return -5;
@@ -292,20 +297,23 @@ int AliZMQhelpers::alizmq_socket_init(void*& socket, void* context, std::string 
 }
 
 //_______________________________________________________________________________________
-int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const std::string& topic, const std::string& data)
+int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const std::string& topicString, const std::string& data)
 {
   //add a frame to the mesage
   int rc = 0;
-  
+
+  DataTopic topic;
+  topic.SetID(topicString.c_str());
+
   //prepare topic msg
   zmq_msg_t* topicMsg = new zmq_msg_t;
-  rc = zmq_msg_init_size( topicMsg, topic.size());
+  rc = zmq_msg_init_size( topicMsg, sizeof(topic));
   if (rc<0) {
     zmq_msg_close(topicMsg);
     delete topicMsg;
     return -1;
   }
-  memcpy(zmq_msg_data(topicMsg),topic.data(),topic.size());
+  memcpy(zmq_msg_data(topicMsg),&topic,sizeof(topic));
 
   //prepare data msg
   zmq_msg_t* dataMsg = new zmq_msg_t;
@@ -329,7 +337,7 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, vo
 {
   //add a frame to the mesage
   int rc = 0;
-  
+
   //prepare topic msg
   zmq_msg_t* topicMsg = new zmq_msg_t;
   rc = zmq_msg_init_size( topicMsg, sizeof(*topic));
@@ -362,7 +370,7 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, co
 {
   //add a frame to the mesage
   int rc = 0;
-  
+
   //prepare topic msg
   zmq_msg_t* topicMsg = new zmq_msg_t;
   rc = zmq_msg_init_size( topicMsg, sizeof(*topic));
@@ -391,12 +399,15 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, co
 }
 
 //_______________________________________________________________________________________
-int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, TObject* object,
+int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, TObject* object,
                    int compression, aliZMQrootStreamerInfo* streamers)
 {
   //add a frame to the mesage
   int rc = 0;
-  
+
+  //we are definitely serializing ROOT objects here...
+  topic->SetSerialization(kSerializationROOT);
+
   //prepare topic msg
   zmq_msg_t* topicMsg = new zmq_msg_t;
   rc = zmq_msg_init_size( topicMsg, sizeof(*topic));
@@ -429,9 +440,10 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, const DataTopic* topic, TO
     delete dataMsg;
     return -1;
   }
-  
+
   //add the frame to the message
   message->push_back(std::make_pair(topicMsg,dataMsg));
+
   return message->size();
 }
 
@@ -441,7 +453,7 @@ int AliZMQhelpers::alizmq_msg_send(aliZMQmsg* message, void* socket, int flagsUs
   int nBytes = 0;
   int rc = 0;
   int flags = flagsUser | ZMQ_SNDMORE;
- 
+
   for (aliZMQmsg::iterator i=message->begin(); i!=message->end(); ++i)
   {
     zmq_msg_t* topic = i->first;
@@ -461,17 +473,21 @@ int AliZMQhelpers::alizmq_msg_send(aliZMQmsg* message, void* socket, int flagsUs
 }
 
 //_______________________________________________________________________________________
-int AliZMQhelpers::alizmq_msg_send(std::string topic, std::string data, void* socket, int flags)
+int AliZMQhelpers::alizmq_msg_send(std::string topicString, std::string data, void* socket, int flags)
 {
   int nBytes = 0;
   int rc = 0;
+
+  DataTopic topic;
+  topic.SetID(topicString.c_str());
+
   zmq_msg_t topicMsg;
-  zmq_msg_init_size(&topicMsg, topic.size());
-  memcpy(zmq_msg_data(&topicMsg), topic.data(), zmq_msg_size(&topicMsg));
+  zmq_msg_init_size(&topicMsg, sizeof(topic));
+  memcpy(zmq_msg_data(&topicMsg), &topic, zmq_msg_size(&topicMsg));
   rc = zmq_msg_send(&topicMsg, socket, ZMQ_SNDMORE);
-  if (rc<0) 
+  if (rc<0)
   {
-    //printf("unable to send topic: %s\n", topic.c_str());
+    //printf("unable to send topicString: %s\n", topicString.c_str());
     zmq_msg_close(&topicMsg);
     return rc;
   }
@@ -481,7 +497,7 @@ int AliZMQhelpers::alizmq_msg_send(std::string topic, std::string data, void* so
   zmq_msg_init_size(&dataMsg, data.size());
   memcpy(zmq_msg_data(&dataMsg), data.data(), zmq_msg_size(&dataMsg));
   rc = zmq_msg_send(&dataMsg, socket, flags);
-  if (rc<0) 
+  if (rc<0)
   {
     //printf("unable to send data: %s\n", data.c_str());
     zmq_msg_close(&dataMsg);
@@ -551,7 +567,7 @@ void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers
         break;
       }
     }
-    if (!found) { 
+    if (!found) {
       streamers->push_back(info);
     }
   }
@@ -562,7 +578,7 @@ int AliZMQhelpers::alizmq_msg_iter_init_streamer_infos(aliZMQmsg::iterator it)
 {
   int rc = 0;
   TObject* obj = NULL;
-  rc = alizmq_msg_iter_data(it,obj); 
+  rc = alizmq_msg_iter_data(it,obj);
   TObjArray* pSchemas = dynamic_cast<TObjArray*>(obj);
   if (!pSchemas) {
     return -1;
@@ -615,7 +631,7 @@ int AliZMQhelpers::alizmq_msg_iter_init_streamer_infos(aliZMQmsg::iterator it)
 }
 
 //_______________________________________________________________________________________
-int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void* socket, int flags, 
+int AliZMQhelpers::alizmq_msg_send(DataTopic& topic, TObject* object, void* socket, int flags, 
                     int compression, aliZMQrootStreamerInfo* streamers)
 {
   int nBytes = 0;
@@ -625,14 +641,17 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void
   zmq_msg_t dataMsg;
   rc = zmq_msg_init_data( &dataMsg, tmessage->Buffer(), tmessage->Length(),
       alizmq_deleteTObject, tmessage);
-  
+
   if (streamers) {
     alizmq_update_streamerlist(streamers, tmessage->GetStreamerInfos());
   }
 
+  //we are definitely serializing ROOT objects here...
+  topic.SetSerialization(kSerializationROOT);
+
   //then send the object topic
   rc = zmq_send( socket, &topic, sizeof(topic), ZMQ_SNDMORE );
-  if (rc<0) 
+  if (rc<0)
   {
     zmq_msg_close(&dataMsg);
     //printf("unable to send topic: %s %s\n", topic.Description().c_str(), zmq_strerror(errno));
@@ -642,13 +661,14 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, TObject* object, void
 
   //send the object itself
   rc = zmq_msg_send(&dataMsg, socket, flags);
-  if (rc<0) 
+  if (rc<0)
   {
     //printf("unable to send data: %s %s\n", tmessage->GetName(), zmq_strerror(errno));
     zmq_msg_close(&dataMsg);
     return rc;
   }
   nBytes += rc;
+
   return nBytes;
 }
 
@@ -658,7 +678,7 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, const std::string& da
   int nBytes = 0;
   int rc = 0;
   rc = zmq_send( socket, &topic, sizeof(topic), ZMQ_SNDMORE );
-  if (rc<0) 
+  if (rc<0)
   {
     //printf("unable to send topic: %s %s\n", topic.Description().c_str(), zmq_strerror(errno));
     return rc;
@@ -669,7 +689,7 @@ int AliZMQhelpers::alizmq_msg_send(const DataTopic& topic, const std::string& da
   zmq_msg_init_size(&dataMsg, data.size());
   memcpy(zmq_msg_data(&dataMsg), data.data(), zmq_msg_size(&dataMsg));
   rc = zmq_msg_send(&dataMsg, socket, flags);
-  if (rc<0) 
+  if (rc<0)
   {
     //printf("unable to send data: %s\n", data.c_str());
     zmq_msg_close(&dataMsg);
@@ -744,7 +764,9 @@ int AliZMQhelpers::alizmq_msg_iter_check_id(aliZMQmsg::iterator it, const std::s
 int AliZMQhelpers::alizmq_msg_iter_topic(aliZMQmsg::iterator it, std::string& topic)
 {
   zmq_msg_t* message = it->first;
-  topic.assign((char*)zmq_msg_data(message),zmq_msg_size(message));
+  char* arr = (char*)(&((DataTopic*)zmq_msg_data(message))->fDataDescription[1]);
+  size_t nbytes = sizeof(DataTopic::fDataDescription[2]);
+  topic.assign(arr,nbytes);
   return 0;
 }
 
@@ -753,6 +775,15 @@ int AliZMQhelpers::alizmq_msg_iter_data(aliZMQmsg::iterator it, std::string& dat
 {
   zmq_msg_t* message = it->second;
   data.assign((char*)zmq_msg_data(message),zmq_msg_size(message));
+  return 0;
+}
+
+//_______________________________________________________________________________________
+int AliZMQhelpers::alizmq_msg_iter_data(aliZMQmsg::iterator it, void*& buffer, size_t& size)
+{
+  zmq_msg_t* message = it->second;
+  buffer = zmq_msg_data(message);
+  size = zmq_msg_size(message);
   return 0;
 }
 
@@ -772,7 +803,7 @@ int AliZMQhelpers::alizmq_msg_iter_data(aliZMQmsg::iterator it, TObject*& object
   void* data = zmq_msg_data(message);
 
   object = AliHLTMessage::Extract(data, size);
-  return 0;  
+  return 0;
 }
 
 //_______________________________________________________________________________________
@@ -787,7 +818,7 @@ int AliZMQhelpers::alizmq_msg_copy(aliZMQmsg* dst, aliZMQmsg* src)
     rc  = zmq_msg_init(topicMsg);
     rc += zmq_msg_copy(topicMsg, i->first);
     if (rc<0) numberOfMessages=-1;
-    
+
     zmq_msg_t* dataMsg = new zmq_msg_t;
     rc  = zmq_msg_init(dataMsg);
     rc += zmq_msg_copy(dataMsg, i->second);
@@ -801,7 +832,7 @@ int AliZMQhelpers::alizmq_msg_copy(aliZMQmsg* dst, aliZMQmsg* src)
       delete dataMsg;
       return -1;
     }
-    
+
     dst->push_back(std::make_pair(topicMsg, dataMsg));
     numberOfMessages++;
   }
@@ -890,7 +921,7 @@ int AliZMQhelpers::alizmq_msg_recv(aliZMQmsgStr* message, void* socket, int flag
 
     rc = zmq_msg_close(&topicMsg);
     rc = zmq_msg_close(&dataMsg);
-    
+
     int more=0;
     size_t moreLength = sizeof(more);
     rc = zmq_getsockopt(socket, ZMQ_RCVMORE, &more, &moreLength);
@@ -997,5 +1028,76 @@ bool AliZMQhelpers::Topicncmp(const char* topic,
     }
   }
   return true;
+}
+
+//______________________________________________________________________________
+AliZMQhelpers::BaseDataTopic::BaseDataTopic()
+  : fMagicNumber(fgkMagicNumber)
+  , fHeaderSize(sizeof(BaseDataTopic))
+  , fFlags(0)
+  , fBaseHeaderVersion(1)
+  , fHeaderDescription(0)
+  , fHeaderSerialization(0)
+{
+}
+
+//______________________________________________________________________________
+AliZMQhelpers::BaseDataTopic::BaseDataTopic(uint32_t size, uint64_t desc, uint64_t seri)
+  : fMagicNumber(fgkMagicNumber)
+  , fHeaderSize(size)
+  , fFlags(0)
+  , fBaseHeaderVersion(1)
+  , fHeaderDescription(desc)
+  , fHeaderSerialization(seri)
+{
+}
+
+//__________________________________________________________________________________________________
+//helper function to print a hex/ASCII dump of some memory
+void AliZMQhelpers::hexDump (const char* desc, void* addr, int len)
+{
+  int i;
+  unsigned char buff[17];       // stores the ASCII data
+  unsigned char *pc = static_cast<unsigned char*>(addr);     // cast to make the code cleaner.
+
+  // Output description if given.
+  if (desc != NULL)
+    printf ("%s:\n", desc);
+
+  // In case of null pointer addr
+  if (addr==nullptr) {printf("  nullptr\n"); return;}
+
+  // Process every byte in the data.
+  for (i = 0; i < len; i++) {
+    // Multiple of 16 means new line (with line offset).
+    if ((i % 16) == 0) {
+      // Just don't print ASCII for the zeroth line.
+      if (i != 0)
+        printf ("  %s\n", buff);
+
+      // Output the offset.
+      //printf ("  %04x ", i);
+      printf ("  %p ", &pc[i]);
+    }
+
+    // Now the hex code for the specific character.
+    printf (" %02x", pc[i]);
+
+    // And store a printable ASCII character for later.
+    if ((pc[i] < 0x20) || (pc[i] > 0x7e))
+      buff[i % 16] = '.';
+    else
+      buff[i % 16] = pc[i];
+    buff[(i % 16) + 1] = '\0';
+  }
+
+  // Pad out last line if not exactly 16 characters.
+  while ((i % 16) != 0) {
+    printf ("   ");
+    i++;
+  }
+
+  // And print the final ASCII bit.
+  printf ("  %s\n", buff);
 }
 

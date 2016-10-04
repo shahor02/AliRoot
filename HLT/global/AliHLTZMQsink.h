@@ -1,7 +1,7 @@
 #ifndef ALIHLTZMQSINK_H
 #define ALIHLTZMQSINK_H
 
-/* This file is property of and copyright by the ALICE HLT Project        * 
+/* This file is property of and copyright by the ALICE HLT Project        *
  * ALICE Experiment at CERN, All rights reserved.                         *
  * See cxx source for full Copyright notice                               */
 
@@ -21,7 +21,7 @@ using namespace AliZMQhelpers;
 
 class AliHLTZMQsink : public AliHLTComponent, public AliOptionParser {
 public:
-  
+
   AliHLTZMQsink();
   virtual ~AliHLTZMQsink();
 
@@ -41,13 +41,13 @@ protected:
   Int_t DoInit( Int_t /*argc*/, const Char_t** /*argv*/ );
   Int_t DoDeinit();
   int DoProcessing( const AliHLTComponentEventData& evtData,
-                    const AliHLTComponentBlockData* blocks, 
+                    const AliHLTComponentBlockData* blocks,
                     AliHLTComponentTriggerData& trigData,
-                    AliHLTUInt8_t* outputPtr, 
+                    AliHLTUInt8_t* outputPtr,
                     AliHLTUInt32_t& size,
                     AliHLTComponentBlockDataList& outputBlocks,
                     AliHLTComponentEventDoneData*& edd );
-  
+
 private:
 
   AliHLTZMQsink(const AliHLTZMQsink&);
@@ -71,7 +71,7 @@ private:
   Bool_t fSendStreamerInfos;   //send the cached streamer infos
   TRegexp fCDBpattern;          //keep the pattern for cdb string checks
   std::string fInfoString;  //cache the string with the run information
-  
+
   ClassDef(AliHLTZMQsink, 1)
 };
 #endif
