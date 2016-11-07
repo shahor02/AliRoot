@@ -4,7 +4,6 @@
 #include "AliHLTComponent.h"
 #include "AliHLTMessage.h"
 #include "TClass.h"
-#include "TMap.h"
 #include "TPRegexp.h"
 #include "TObjString.h"
 #include "TH1.h"
@@ -30,12 +29,16 @@
 #include <pthread.h>
 #include "TMethodCall.h"
 #include "TMethod.h"
+#include "AliMergeable.h"
 
 //this is meant to become a class, hence the structure with global vars etc.
 //Also the code is rather flat - it is a bit of a playground to test ideas.
 //TODO structure this at some point, e.g. introduce a SIMPLE unified way of handling
 //zmq payloads, maybe a AliZMQmessage class which would by default be multipart and provide
 //easy access to payloads based on topic or so (a la HLT GetFirstInputObject() etc...)
+
+class AliZMQROOTMergerEntry;
+typedef std::map<std::string, AliZMQROOTMergerEntry> mergeMap_t;
 
 using namespace AliZMQhelpers;
 
@@ -53,18 +56,15 @@ Int_t DoReply(aliZMQmsg::iterator block, void* socket);
 Int_t DoRequest(void*& socket, TString* config=NULL);
 Int_t DoControl(aliZMQmsg::iterator block, void* socket);
 Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, std::string prefix="");
+Int_t GetObjects(AliMergeable* unpackable, std::vector<TObject*>* list, std::string prefix="");
 Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::string prefix="");
-TCollection* UnpackToCollection(TObject*, std::string);
 Int_t ReadFromFile(std::string file);
 Int_t DumpToFile(std::string file);
 
 //merger private functions
 int ResetOutputData(Bool_t force=kFALSE);
 int ClearOutputData();
-void ClearMergeListMap();
-Int_t Merge(TObject* object, TCollection* list);
-int AddNewObject(TObject* object);
-int RemoveEntry(TPair* entry, TMap* map);
+int RemoveEntry(string& name, mergeMap_t& map);
 Int_t AddObject(TObject* object);
 void SetLastPushBackTime();
 
@@ -93,8 +93,6 @@ Bool_t  fAllowClearAtSOR=kFALSE;
 
 Bool_t  fUnpackCollections = kFALSE;
 Bool_t  fUnpackContainers = kFALSE;
-std::string fCustomUnpackMethodName = "GetListOfDrawableObjects";
-Bool_t  fCustomUnpackMethod = kFALSE;
 Bool_t  fFullyDestroyAnalysisDataContainer = kFALSE;
 std::string fLoadLibs;
 
@@ -114,8 +112,7 @@ std::string fInfo;           //cache for the info string
 std::string fID;  //merger ID/name
 
 //internal state
-TMap fMergeObjectMap;        //map of the merged objects, all incoming stuff is merged into these
-TMap fMergeListMap;          //map with the lists of objects to be merged in
+mergeMap_t fMergeObjectMap;        //map of the merged objects, all incoming stuff is merged into these
 Int_t fMaxObjects = 1;        //trigger merge after this many messages
 std::vector<TObject*> fListOfObjects;
 
@@ -137,6 +134,8 @@ double fBytesIN = 0;
 double fBytesOUT = 0;
 unsigned long fSecondsStart = 0;
 unsigned long fSecondsStop = 0;
+unsigned long long fNumberOfMessagesReceived = 0;
+unsigned long long fNumberOfMessagesSent = 0;
 
 //ZMQ stuff
 void* fZMQcontext = NULL;    //ze zmq context
@@ -207,11 +206,131 @@ void sig_handler(int signo)
   fgTerminationSignaled=true;
 }
 
+//_____________________________________________________________________
+class AliZMQROOTMergerEntry {
+
+private:
+  TObject* fObject;
+  TList fMergeList;
+  TMethodCall* fMergeCall;
+
+public:
+  AliZMQROOTMergerEntry(): fObject(NULL), fMergeList(), fMergeCall(NULL)
+  {
+    fMergeList.SetOwner(kTRUE);
+  }
+
+  AliZMQROOTMergerEntry(TObject* o)
+    :fObject(o)
+    ,fMergeList()
+    ,fMergeCall(NULL)
+  {
+    fMergeList.SetOwner(kTRUE);
+  }
+
+  AliZMQROOTMergerEntry(const AliZMQROOTMergerEntry& that)
+    :fObject(that.fObject)
+    ,fMergeList()
+    ,fMergeCall(that.fMergeCall)
+  {
+    fMergeList.SetOwner(kTRUE);
+  }
+
+  AliZMQROOTMergerEntry& operator=(const AliZMQROOTMergerEntry& that)
+  {
+    delete fObject;
+    fObject = that.fObject;
+    return *this;
+  }
+
+  AliZMQROOTMergerEntry& operator=(TObject* o)
+  {
+    delete fObject;
+    fObject = o;
+    return *this;
+  }
+
+  AliZMQROOTMergerEntry& operator+=(TObject* o)
+  {
+    Merge(o);
+    return *this;
+  }
+
+  TObject* GetObject() {return fObject;}
+
+  Int_t Merge(TObject* o)
+  {
+    //this method takes ownership of input
+    if (!fObject) {
+      if (fVerbose) printf("adding first instance\n");
+      fObject = o;
+      return 0;
+    }
+
+    fMergeList.Add(o);
+
+    int rc=0;
+    TH1* hist = dynamic_cast<TH1*>(fObject);
+
+    AliMergeable* mergeable = NULL;
+    if (!hist)
+    {
+      mergeable = dynamic_cast<AliMergeable*>(fObject);
+    }
+    else if (!fMergeCall && fObject->IsA())
+    {
+      //use ROOT magic as last resort
+      fMergeCall = new TMethodCall;
+      fMergeCall->InitWithPrototype(fObject->IsA(), "Merge", "TCollection*");
+      if (!fMergeCall->IsValid()) { delete fMergeCall; fMergeCall=NULL; }
+    }
+
+    if (hist)
+    {
+      if (fVerbose) printf("merging TH1\n");
+      rc = hist->Merge(&fMergeList);
+      if (!(rc<0)) {
+        fMergeList.Delete();
+        return rc;
+      }
+    }
+    else if (mergeable)
+    {
+      if (fVerbose) printf("merging via AliMergeable ptr\n");
+      rc = mergeable->Merge(&fMergeList);
+      if (!(rc<0)) {
+        fMergeList.Delete();
+        return rc;
+      }
+    }
+    else if (fMergeCall)
+    {
+      if (fVerbose) printf("merging via TMethodCall\n");
+      fMergeCall->SetParam((Long_t) &fMergeList);
+      fMergeCall->Execute(fObject);
+      fMergeList.Delete();
+      return 0;
+    }
+    else
+    {
+      if (fVerbose) printf("Object does not implement merge functionality of any kind, caching instead!\n");
+      delete fObject;
+      fObject = fMergeList.Remove(o);
+      return 0;
+    }
+    return -1;
+  }
+
+  ~AliZMQROOTMergerEntry() {
+    delete fObject;
+    fMergeList.Delete();
+    delete fMergeCall;
+  }
+};
+
 //_______________________________________________________________________________________
 Int_t Run()
 {
-  fMergeListMap.SetOwnerKeyValue(kTRUE,kTRUE);
-
   //start time (sec)
   gettimeofday(&fCurrentTimeStruct, NULL);
   fSecondsStart = fCurrentTimeStruct.tv_sec;
@@ -255,6 +374,7 @@ Int_t Run()
       int pushBack = 0;
       aliZMQmsg message;
       fBytesIN += alizmq_msg_recv(&message, fZMQin, 0);
+      fNumberOfMessagesReceived++;
       for (aliZMQmsg::iterator i=message.begin(); i!=message.end(); ++i)
       {
         if (alizmq_socket_type(fZMQin)==ZMQ_REP)
@@ -278,6 +398,7 @@ Int_t Run()
       int pushBack = 0;
       aliZMQmsg message;
       fBytesIN += alizmq_msg_recv(&message, fZMQout, 0);
+      fNumberOfMessagesReceived++;
       for (aliZMQmsg::iterator i=message.begin(); i!=message.end(); ++i)
       {
         if (alizmq_socket_type(fZMQout)==ZMQ_REP)
@@ -300,6 +421,7 @@ Int_t Run()
       int pushBack = 0;
       aliZMQmsg message;
       fBytesIN += alizmq_msg_recv(&message, fZMQmon, 0);
+      fNumberOfMessagesReceived++;
       for (aliZMQmsg::iterator i=message.begin(); i!=message.end(); ++i)
       {
         if (alizmq_socket_type(fZMQmon)==ZMQ_REP)
@@ -321,6 +443,7 @@ Int_t Run()
     {
       aliZMQmsg message;
       fBytesIN += alizmq_msg_recv(&message, fZMQsync, 0);
+      fNumberOfMessagesReceived++;
       for (aliZMQmsg::iterator i=message.begin(); i!=message.end(); ++i)
       {
         HandleDataIn(i, fZMQsync);
@@ -352,6 +475,8 @@ Int_t Run()
   fSecondsStop = fCurrentTimeStruct.tv_sec;
 
   {
+    printf("number of messages received: %llu\n", fNumberOfMessagesReceived);
+    printf("number of messages sent    : %llu\n", fNumberOfMessagesSent);
     printf("in  %.2f MB, %.2f MB/s\n", (double)(fBytesIN/1024./1024.),  (float)(fBytesIN/(fSecondsStop-fSecondsStart)/1024./1024.));
     printf("out %.2f MB, %.2f MB/s\n", (double)(fBytesOUT/1024./1024.), (float)(fBytesOUT/(fSecondsStop-fSecondsStart)/1024./1024.));
   }
@@ -396,6 +521,8 @@ Int_t DoControl(aliZMQmsg::iterator block, void* socket)
     //on run change
     if (runnumber != fRunNumber)
     {
+      fRunNumber = runnumber;
+      DoSend(socket);
       if (fAllowResetAtSOR)
       {
         if (ResetOutputData(fAllowResetAtSOR)>0)
@@ -413,9 +540,8 @@ Int_t DoControl(aliZMQmsg::iterator block, void* socket)
       if (fZMQsync)
       {
         fBytesOUT += alizmq_msg_send(fInfoTopic, fInfo, fZMQsync, ZMQ_DONTWAIT);
+        fNumberOfMessagesSent++;
       }
-      fRunNumber = runnumber;
-      DoSend(socket);
     }//on run change
 
     return 1;
@@ -460,39 +586,9 @@ Int_t DoReply(aliZMQmsg::iterator block, void* socket)
 }
 
 //_____________________________________________________________________
-int AddNewObject(const char* name, TObject* object, TMap* map)
+int RemoveEntry(string& entry, mergeMap_t& map)
 {
-  map->Add(new TObjString(name), object);
-  if (!fTitleAnnotation.IsNull())
-  {
-    TNamed* named = dynamic_cast<TNamed*>(object);
-    if (!named) return 0;
-
-    TString title = named->GetTitle();
-    title = fTitleAnnotation + " " + title;
-    named->SetTitle(title);
-  }
-  if (!fNameAnnotation.IsNull())
-  {
-    TNamed* named = dynamic_cast<TNamed*>(object);
-    if (!named) return 0;
-
-    TString name = named->GetName();
-    name = fNameAnnotation + " " + name;
-    named->SetName(name);
-  }
-  return 0;
-}
-
-//_____________________________________________________________________
-int RemoveEntry(TPair* entry, TMap* map)
-{
-  TObject* key = entry->Key();
-  TPair* removedEntry = map->RemoveEntry(key);
-  if (removedEntry != entry) return -1;
-  delete entry->Key();
-  delete entry->Value();
-  delete entry;
+  map.erase(entry);
   return 0;
 }
 
@@ -505,49 +601,36 @@ Int_t AddObject(TObject* object)
     return -1;
   }
 
-  const char* name = object->GetName();
-  TList* mergingList = static_cast<TList*>(fMergeListMap.GetValue(name));
-  TPair* entry = static_cast<TPair*>(fMergeObjectMap.FindObject(name));
-  if (!entry)
+  //add annotations
+  string name = object->GetName();
+  if (!fTitleAnnotation.IsNull())
   {
-    if (fVerbose) Printf("adding %s to fMergeObjectMap as first instance", name);
-    AddNewObject(name, object, &fMergeObjectMap);
+    TNamed* named = dynamic_cast<TNamed*>(object);
+    if (!named) return 0;
+
+    string title = named->GetTitle();
+    title = fTitleAnnotation + " " + title;
+    named->SetTitle(title.c_str());
   }
-  else if (!mergingList && !fCacheOnly)
+  if (!fNameAnnotation.IsNull())
   {
-    if (fVerbose) Printf("adding a new list %s to fMergeListMap", name);
-    mergingList = new TList();
-    mergingList->SetOwner();
-    AddNewObject(name, mergingList, &fMergeListMap);
+    TNamed* named = dynamic_cast<TNamed*>(object);
+    if (!named) return 0;
+
+    string name = named->GetName();
+    name = fNameAnnotation + " " + name;
+    named->SetName(name.c_str());
+  }
+
+  //do the merge or cache
+  AliZMQROOTMergerEntry& mergerEntry = fMergeObjectMap[name];
+  if (fCacheOnly)
+  {
+    mergerEntry = object;
   }
   else
   {
-    //add object and maybe merge
-    if (fCacheOnly)
-    {
-      if (fVerbose) Printf("caching  %s's",name);
-      RemoveEntry(entry, &fMergeObjectMap);
-      AddNewObject(name, object, &fMergeObjectMap);
-    }
-    else
-    {
-      mergingList->AddLast(object);
-      if (mergingList->GetEntries() >= fMaxObjects)
-      {
-        if (fVerbose) Printf("%i %s's in, merging",mergingList->GetEntries(),name);
-        TObject* mergingObject = entry->Value();
-        int rc = Merge(mergingObject, mergingList);
-        if (rc<0)
-        {
-          if (fVerbose) Printf("Merging failed, replacing with new object %s",name);
-          RemoveEntry(entry, &fMergeObjectMap);
-          mergingList->Remove(object);
-          //if the merging list has more objects, flush the list to avoid problems
-          if (mergingList->GetEntries()>0) mergingList->Delete();
-          AddNewObject(name, object, &fMergeObjectMap);
-        }
-      }
-    }
+    mergerEntry += object;
   }
   return 0;
 }
@@ -568,7 +651,7 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
 
   //if we get a collection, always set ownership to prevent mem leaks
   //if we request unpacking: unpack what was requestd, otherwise just add
-  do {
+  do { //fake loop for easy breaking
     if (fUnpackContainers) {
       AliAnalysisDataContainer* container = dynamic_cast<AliAnalysisDataContainer*>(object);
       if (container) {
@@ -577,6 +660,14 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
         GetObjects(container, &fListOfObjects);
         if (fVerbose) printf("deleting analysis container with name %s %p\n", container->GetName(), container);
         delete container;
+        break;
+      }
+      AliMergeable* unpackable = dynamic_cast<AliMergeable*>(object);
+      if (unpackable) {
+        if (fVerbose) printf("unpacking custom AliMergeable container %p\n", unpackable);
+        GetObjects(unpackable, &fListOfObjects);
+        if (fVerbose) printf("deleting custom AliMergeable container %p\n", unpackable);
+        delete unpackable;
         break;
       }
     }
@@ -651,9 +742,11 @@ Int_t DoRequest(void*& socket, TString* config)
   if (fRequestResetOnRequest) {
     if (fVerbose) Printf("sending an ResetOnRequest request");
     alizmq_msg_send(kAliHLTDataTypeConfig, "ResetOnRequest",socket,0);
+    fNumberOfMessagesSent++;
   } else {
     if (fVerbose) Printf("sending an empty request");
     alizmq_msg_send("", "", socket, 0);
+    fNumberOfMessagesSent++;
   }
 
   fLastRequestTime = currentTime;
@@ -676,18 +769,17 @@ Int_t DoSend(void* socket)
   alizmq_msg_add(&message, &fInfoTopic, fInfo);
   Bool_t reset = kFALSE;
   Int_t rc = 0;
-  TObject* object = NULL;
-  TObject* key = NULL;
+  int parts = 0;
 
-  TIter mapIter(&fMergeObjectMap);
-  while ((key = mapIter.Next()))
+  for (mergeMap_t::iterator i = fMergeObjectMap.begin(); i!=fMergeObjectMap.end(); ++i)
   {
     //the topic
     AliHLTDataTopic topic = kAliHLTDataTypeTObject|kAliHLTDataOriginOut;
     //the data
-    object = fMergeObjectMap.GetValue(key);
+    string objectName = i->first;
+    AliZMQROOTMergerEntry& entry = i->second;
+    TObject* object = entry.GetObject();
 
-    const char* objectName = object->GetName();
     Bool_t selected = kTRUE;
     Bool_t unselected = kFALSE;
     if (fSendSelection) selected = fSendSelection->Match(objectName);
@@ -697,25 +789,25 @@ Int_t DoSend(void* socket)
     if (!selected || unselected)
     {
       if (fVerbose) Printf("     object %s did NOT make the selection [%s] && ![%s]",
-                           objectName, (fSendSelection)?fSendSelection->GetPattern().Data():"",
+                           objectName.c_str(), (fSendSelection)?fSendSelection->GetPattern().Data():"",
                            (fUnSendSelection)?fUnSendSelection->GetPattern().Data():"");
       continue;
     }
 
+    //add data to be sent
     rc = alizmq_msg_add(&message, &topic, object, fCompression, fSchema);
+    parts++;
+
     if (fResetOnSend || ( fResetOnRequest && fAllowResetOnRequest ))
     {
       reset = kTRUE;
       if (fClearOnReset) {
-        if (fVerbose) {printf("resetting %s\n",objectName);}
+        if (fVerbose) {printf("resetting %s\n",objectName.c_str());}
         TH1* hist = dynamic_cast<TH1*>(object);
         if (hist) hist->Reset();
       } else {
-        if (fVerbose) {printf("destroying %s\n",objectName);}
-        TPair* pair = fMergeObjectMap.RemoveEntry(key);
-        delete pair->Key();
-        delete pair->Value();
-        delete pair;
+        if (fVerbose) {printf("destroying %s\n",objectName.c_str());}
+        fMergeObjectMap.erase(objectName);
       }
     }
   }
@@ -730,14 +822,16 @@ Int_t DoSend(void* socket)
     aliZMQmsg messageCopy;
     alizmq_msg_copy(&messageCopy, &message);
     sentBytes += alizmq_msg_send(&messageCopy, fZMQresetBroadcast, 0);
+    fNumberOfMessagesSent++;
     if (fVerbose) printf("a copy was broadcasted, %i bytes\n", sentBytes);
     alizmq_msg_close(&messageCopy);
   }
 
   //send
   sentBytes += alizmq_msg_send(&message, socket, 0);
+  fNumberOfMessagesSent++;
   fBytesOUT += sentBytes;
-  if (fVerbose) Printf("merger sent %i bytes", sentBytes);
+  if (fVerbose) Printf("merger sent %i bytes, %i parts, on socket %p", sentBytes, parts, socket);
   alizmq_msg_close(&message);
 
   SetLastPushBackTime();
@@ -753,32 +847,20 @@ void SetLastPushBackTime()
 }
 
 //______________________________________________________________________________
-void ClearMergeListMap()
-{
-  TIter mapIter(&fMergeListMap);
-  while (TObject* key = mapIter.Next())
-  {
-    TList* list = static_cast<TList*>(fMergeListMap.GetValue(key));
-    if (list) list->Delete();
-  }
-}
-
-//______________________________________________________________________________
 int ResetOutputData(Bool_t force)
 {
   if (fAllowGlobalReset || force)
   {
+    if (fZMQresetBroadcast) {
+      if (fVerbose) Printf("broadcasting data before reset");
+      DoSend(fZMQresetBroadcast);
+    }
     if (fClearOnReset) {
       if (fVerbose) Printf("Clearing the merger by calling Reset() on all data");
       return ClearOutputData();
     } else {
       if (fVerbose) Printf("Resetting the merger");
-      if (fZMQresetBroadcast) {
-        if (fVerbose) Printf("broadcasting data on reset");
-        DoSend(fZMQresetBroadcast);
-      }
-      fMergeObjectMap.DeleteAll();
-      ClearMergeListMap();
+      fMergeObjectMap.clear();
       return 1;
     }
   }
@@ -788,25 +870,22 @@ int ResetOutputData(Bool_t force)
 //______________________________________________________________________________
 int ClearOutputData()
 {
-  TObject* object = NULL;
-  TObject* key = NULL;
-
   if (fZMQresetBroadcast) {
-    if (fVerbose) Printf("broadcasting data on reset");
+    if (fVerbose) Printf("broadcasting data before clear");
     DoSend(fZMQresetBroadcast);
   }
 
-  TIter mapIter(&fMergeObjectMap);
-  while ((key = mapIter.Next()))
+  for (mergeMap_t::iterator i = fMergeObjectMap.begin(); i!=fMergeObjectMap.end(); ++i)
   {
     //the data
-    object = fMergeObjectMap.GetValue(key);
+    AliZMQROOTMergerEntry& entry = i->second;
+    TObject* object = entry.GetObject();
+
     TH1* hist = dynamic_cast<TH1*>(object);
     if (!hist) continue;
     if (fVerbose) printf("clearing %s\n",hist->GetName());
     hist->Reset();
   }
-  ClearMergeListMap();
   return 1;
 }
 
@@ -825,43 +904,6 @@ Int_t InitZMQ()
   printf("sync: (%s) %s\n", alizmq_socket_name(rc) , fZMQconfigSYNC.Data());
   rc = alizmq_socket_init(fZMQtrig, fZMQcontext, fZMQconfigTRIG, -1, 1);
   printf("trigger: (%s) %s\n", alizmq_socket_name(rc) , fZMQconfigTRIG.c_str());
-  return 0;
-}
-
-//_______________________________________________________________________________________
-Int_t Merge(TObject* object, TCollection* mergeList)
-{
-  int rc=0;
-  TH1* hist = dynamic_cast<TH1*>(object);
-  if (hist)
-  {
-    rc = hist->Merge(mergeList);
-    if (rc<0)
-    {
-      return(-1);
-    }
-    mergeList->Delete();
-    return rc;
-  }
-  else if (object->IsA()->GetMethodWithPrototype("Merge", "TCollection*"))
-  {
-    Int_t error = 0;
-    TString listHargs;
-    listHargs.Form("((TCollection*)0x%lx)", (ULong_t) mergeList);
-    //Printf("listHargs: %s", listHargs.Data());
-    object->Execute("Merge", listHargs.Data(), &error);
-    if (error)
-    {
-      //Printf("Error %i running merge!", error);
-      return(-1);
-    }
-    mergeList->Delete();
-  }
-  else if (!object->IsA()->GetMethodWithPrototype("Merge", "TCollection*"))
-  {
-    if (fVerbose) Printf("Object does not implement a merge function!");
-    return(-1);
-  }
   return 0;
 }
 
@@ -936,7 +978,7 @@ Int_t ProcessOptionString(TString arguments, Bool_t verbose)
     }
     else if (option.EqualTo("Verbose"))
     {
-      fVerbose=kTRUE;
+      fVerbose=value.EqualTo("0")?kFALSE:kTRUE;
     }
     else if (option.EqualTo("pushback-period"))
     {
@@ -1035,14 +1077,6 @@ Int_t ProcessOptionString(TString arguments, Bool_t verbose)
     {
       fUnpackContainers = (value.Contains("0") || value.Contains("no"))?kFALSE:kTRUE;
     }
-    else if (option.EqualTo("CustomUnpackMethodName"))
-    {
-      fCustomUnpackMethodName = value.Data();
-    }
-    else if (option.EqualTo("UnpackCustom"))
-    {
-      fCustomUnpackMethod = value.Contains("0")?kFALSE:kTRUE;
-    }
     else if (option.EqualTo("IgnoreDefaultContainerNames"))
     {
       fIgnoreDefaultNamesWhenUnpacking = (value.Contains("0"))?kFALSE:kTRUE;
@@ -1103,7 +1137,6 @@ Int_t ProcessOptionString(TString arguments, Bool_t verbose)
     if (fIgnoreDefaultNamesWhenUnpacking) printf("ignoring default cont names\n");
     if (fUnpackContainers) printf("unpacking containers\n");
     if (fUnpackCollections) printf("unpacking collections\n");
-    if (fCustomUnpackMethod) printf("using a custom unpacking method: %s\n", fCustomUnpackMethodName.c_str());
   }
 
   return nOptions;
@@ -1227,6 +1260,51 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
 }
 
 //______________________________________________________________________________
+Int_t GetObjects(AliMergeable* unpackable, std::vector<TObject*>* list, std::string prefix)
+{
+  TCollection* collection = unpackable->GetListOfDrawableObjects();
+  std::string collName = collection->GetName();
+  if (fIgnoreDefaultNamesWhenUnpacking && ( collName=="TObjArray" || collName=="TList" || 
+                                            collName=="AliHLTObjArray" || collName=="AliHLTList")) {
+    collName = "";
+  } else {
+    collName+="/";
+  }
+  std::string collPrefix = prefix + collName;
+
+  TIter next(collection);
+  while (TObject* tmp = next()) {
+    collection->Remove(tmp);
+    TCollection* subcollection = dynamic_cast<TCollection*>(tmp);
+    if (subcollection) {
+      if (fVerbose) Printf("  have a subcollection %s %p",subcollection->GetName(), subcollection);
+      GetObjects(subcollection, list, collPrefix);
+      if (fVerbose) Printf("  destroying a subcollection %s %p",subcollection->GetName(), subcollection);
+      delete subcollection;
+    } else {
+      //..or just an object
+      TNamed* named = dynamic_cast<TNamed*>(tmp);
+      if (named) {
+        std::string name = collPrefix + named->GetName();
+        named->SetName(name.c_str());
+        if (fTitleAnnotationWithContainerName) {
+          std::string title = collPrefix + named->GetTitle();
+          named->SetTitle(title.c_str());
+        }
+        if (fVerbose) Printf("--in: %s (%s), %p",
+                             named->GetName(),
+                             named->ClassName(),
+                             named );
+      }
+      list->push_back(tmp);
+    }
+  }
+  collection->SetOwner(kTRUE);
+  delete collection;
+  return 0;
+}
+
+//______________________________________________________________________________
 Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::string prefix)
 {
   std::string collName = collection->GetName();
@@ -1242,19 +1320,19 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
     collection->Remove(tmp);
 
     AliAnalysisDataContainer* analKont = NULL;
-    TCollection* unpackedList = NULL;
     TCollection* subcollection = NULL;
+    AliMergeable* unpackable = NULL;
 
     if (fUnpackContainers) {
       analKont = dynamic_cast<AliAnalysisDataContainer*>(tmp);
     }
 
-    if (!analKont) {
-      subcollection = dynamic_cast<TCollection*>(tmp);
+    if (fUnpackContainers && !analKont) {
+      unpackable = dynamic_cast<AliMergeable*>(tmp);
     }
 
-    if (fCustomUnpackMethod && !analKont && !subcollection) {
-      unpackedList = UnpackToCollection(tmp, fCustomUnpackMethodName);
+    if (!analKont && !unpackable) {
+      subcollection = dynamic_cast<TCollection*>(tmp);
     }
 
     if (analKont) {
@@ -1271,12 +1349,12 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
       if (fVerbose) Printf("  destroying a subcollection %s %p",subcollection->GetName(), subcollection);
       delete subcollection;
 
-    } else if (unpackedList) {
+    } else if (unpackable) {
         //something implementing a custom method to unpack into a list
-        if (fVerbose) Printf("  using the custom unpacked list %p",unpackedList);
-        GetObjects(unpackedList, list, collPrefix);
-        if (fVerbose) Printf("  destroying the custom unpacked list %p",unpackedList);
-        delete unpackedList;
+        if (fVerbose) Printf("  have a AliMergeable object %p",unpackable);
+        GetObjects(unpackable, list, collPrefix);
+        if (fVerbose) Printf("  destroying the AliMergeable object %p",unpackable);
+        delete unpackable;
         delete tmp; //after unpacking we destroy the object
 
     } else {
@@ -1299,31 +1377,6 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
     collection->SetOwner(kTRUE);
   } //while
   return 0;
-}
-
-//______________________________________________________________________________
-TCollection* UnpackToCollection(TObject* object, std::string method)
-{
-  //this will call method (which MUST return a pointer to TCollection*
-  //and take no arguments
-  if (fVerbose) {
-    printf("custom unpacking of %s(%s) at %p\n",object->GetName(),object->ClassName(), object);
-  }
-  TMethod* tmethod = object->IsA()->GetMethodWithPrototype(fCustomUnpackMethodName.c_str(), "");
-  if (!tmethod) return NULL;
-  std::string returnType = tmethod->GetReturnTypeName();
-  size_t starpos = returnType.rfind('*');
-  if (starpos == std::string::npos) return NULL;
-  returnType.erase(starpos,1);
-  TClass* returnClass = TClass::GetClass(returnType.c_str());
-  if (!returnClass) return NULL;
-  if (!returnClass->InheritsFrom("TCollection")) return NULL;
-  TMethodCall *mc = new TMethodCall(object->IsA(),method.c_str(),"");
-  char* ret = NULL;
-  mc->Execute(object,&ret);
-  TCollection* collection = reinterpret_cast<TCollection*>(ret);
-  delete mc;
-  return collection;
 }
 
 //______________________________________________________________________________
@@ -1382,11 +1435,11 @@ Int_t DumpToFile(std::string file)
   TFile f(file.c_str(),"recreate");
   if (f.IsZombie()) { return -1; }
 
-  TIter mapIter(&fMergeObjectMap);
-  while (TKey* key = static_cast<TKey*>(mapIter.Next()))
+  for (mergeMap_t::iterator i = fMergeObjectMap.begin(); i!=fMergeObjectMap.end(); ++i)
   {
     //the data
-    TObject* object = fMergeObjectMap.GetValue(key);
+    AliZMQROOTMergerEntry& entry = i->second;
+    TObject* object = entry.GetObject();
     if (!object) continue;
     if (fVerbose) printf("dumping %s to file %s\n", object->GetName(), file.c_str());
     rc = object->Write(object->GetName(),TObject::kOverwrite);
