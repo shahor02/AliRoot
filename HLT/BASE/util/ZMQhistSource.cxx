@@ -26,6 +26,7 @@
 #include "TObjArray.h"
 #include "AliHLTObjArray.h"
 #include "AliOptionParser.h"
+#include "AliHLTexampleMergeableContainer.h"
 
 using namespace AliZMQhelpers;
 
@@ -52,6 +53,9 @@ int fCompression = 0;
 TList* fCollection = NULL;
 AliHLTObjArray* fAnalContainer = NULL;
 TObjArray* fAnalComponentContainer = NULL;
+AliHLTexampleMergeableContainer* fCustomContainer = NULL;
+TH1F* fTemplateHist = NULL;
+Int_t fNumberOfTemplateEntries = 5000000;
 
 const char* fUSAGE =
     "ZMQhstSource: send a randomly filled ROOT histogram\n"
@@ -62,13 +66,14 @@ const char* fUSAGE =
     " -distribution : the pdf of the distribution\n"
     " -range : the range of the histogram, comma separated, e.g. -12.,12.\n"
     " -nbins : how many bins\n"
-    " -count : how many histograms to send before quitting (0 is never quit)\n"
+    " -count : how many messages to send before quitting (0 is never quit)\n"
     " -entries : how many entries in the histogram before sending\n"
     " -histos : how many histograms per message\n"
     " -schema : include the streamer infos in the message\n"
     " -run : run number\n"
     " -collection : wrap all histograms in a TObjArray\n"
     " -analysisContainer : wrap the collection in an AliHLTObjArray inside TObjArray like online\n"
+    " -customContainer : wrap the collection in an AliHLTexampleMergeableContainer\n"
     //" -compression : compression level (0|1)\n"
     ;
 
@@ -103,6 +108,11 @@ int main(int argc, char** argv)
     fHistograms.push_back(hist);
   }
 
+  printf("initializing the distribution (%s) \n", formula.GetExpFormula("P").Data());
+  TH1F* templateHist = new TH1F("templateHist", "templateHist", fHistNBins, fHistRangeLow, fHistRangeHigh);
+  templateHist->FillRandom("histDistribution", fNumberOfTemplateEntries);
+  printf("...done\n");
+
   if (fCollection)
   {
     for (int i = 0; i < fNHistos; i++)
@@ -114,6 +124,15 @@ int main(int argc, char** argv)
   if (fCollection && fAnalContainer)
   {
     fAnalContainer->Add(fCollection);
+  }
+
+  if (fCustomContainer)
+  {
+    for (int i = 0; i < fNHistos; i++)
+    {
+      if (fVerbose) printf("adding histogram to custom container\n");
+      fCustomContainer->Add(fHistograms[i]);
+    }
   }
 
   if (fSchema) {
@@ -130,7 +149,7 @@ int main(int argc, char** argv)
     for (int i = 0; i < fNHistos; i++)
     {
       fHistograms[i]->Reset();
-      fHistograms[i]->FillRandom("histDistribution", fNentries);
+      fHistograms[i]->FillRandom(templateHist, fNentries);
     }
 
     AliHLTDataTopic topic = kAliHLTDataTypeTObject;
@@ -150,15 +169,24 @@ int main(int argc, char** argv)
     }
 
     aliZMQmsg message;
-    if (fCollection && !fAnalComponentContainer)
+    if (fCollection && !fAnalComponentContainer && !fCustomContainer)
     {
+      if (fVerbose) printf("adding collection\n");
       rc = alizmq_msg_add(&message, &topic, fCollection, fCompression, fSchema);
       if (rc < 0)
         printf("unable to send\n");
     }
     else if (fCollection && fAnalComponentContainer)
     {
+      if (fVerbose) printf("adding analysis container\n");
       rc = alizmq_msg_add(&message, &topic, fAnalComponentContainer, fCompression, fSchema);
+      if (rc < 0)
+        printf("unable to send\n");
+    }
+    else if (fCustomContainer)
+    {
+      if (fVerbose) printf("adding custom container\n");
+      rc = alizmq_msg_add(&message, &topic, fCustomContainer, fCompression, fSchema);
       if (rc < 0)
         printf("unable to send\n");
     }
@@ -166,6 +194,7 @@ int main(int argc, char** argv)
     {
       for (int i = 0; i < fNHistos; i++)
       {
+        if (fVerbose) printf("adding histogram directly\n");
         rc = alizmq_msg_add(&message, &topic, fHistograms[i], fCompression, fSchema);
         if (rc < 0)
           printf("unable to send\n");
@@ -222,7 +251,6 @@ int ProcessOptionString(TString arguments)
     else if (option.EqualTo("collection"))
     {
       if (!fCollection) fCollection = new TList();
-      //fCollection->SetName("exampleContainer1");
       fCollection->SetOwner(kTRUE);
     }
     else if (option.EqualTo("analysisContainer"))
@@ -232,6 +260,11 @@ int ProcessOptionString(TString arguments)
       fAnalComponentContainer->Add(fAnalContainer);
       if (!fCollection) fCollection = new TList();
       fCollection->SetOwner(kTRUE);
+    }
+    else if (option.EqualTo("customContainer"))
+    {
+      fCustomContainer = new AliHLTexampleMergeableContainer("test");
+
     }
     else if (option.EqualTo("range"))
     {
