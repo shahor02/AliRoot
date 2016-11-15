@@ -6,9 +6,10 @@
 
 class AliMergeable {
 public:
-  virtual ~AliMergeable() {};
+  virtual ~AliMergeable() {}
   virtual Long64_t Merge(TCollection *list) = 0;
   virtual TCollection* GetListOfDrawableObjects() = 0;
+  ClassDef(AliMergeable,0);
 };
 
 #endif

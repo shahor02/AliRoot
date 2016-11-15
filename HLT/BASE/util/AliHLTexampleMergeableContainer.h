@@ -5,32 +5,43 @@
 #include "AliHLTObjArray.h"
 #include "TObject.h"
 
+class TRootIoCtor;
+
 class AliHLTexampleMergeableContainer : public TObject, public AliMergeable {
 
 private:
   AliHLTObjArray* fContainer;
 
 public:
-  AliHLTexampleMergeableContainer(): TObject(), AliMergeable(), fContainer(NULL) {
-    //printf("AliHLTexampleMergeableContainer ctor, %p\n",this);
+  AliHLTexampleMergeableContainer(TRootIoCtor*): TObject(), AliMergeable(), fContainer(NULL) {
   }
+
+  AliHLTexampleMergeableContainer(): TObject(), AliMergeable(),
+    fContainer(new AliHLTObjArray(1))
+  {
+    //printf("AliHLTexampleMergeableContainer ctor, %p\n}
+    fContainer->SetOwner(kTRUE);
+  }
+
   AliHLTexampleMergeableContainer(const char* name): TObject(), AliMergeable(),
     fContainer(new AliHLTObjArray(1))
   {
+    //printf("AliHLTexampleMergeableContainer ctor, %p\n}
     fContainer->SetName(name);
     fContainer->SetOwner(kTRUE);
   }
+
   virtual ~AliHLTexampleMergeableContainer() {
     //printf("AliHLTexampleMergeableContainer dtor, %p\n",this);
     if (fContainer) fContainer->Delete();
-    delete fContainer;
+    delete fContainer; fContainer=NULL;
   }
 
-  void Add(TObject*);
+void Add(TObject*);
 
-  virtual Long64_t Merge(TCollection *list);
+virtual Long64_t Merge(TCollection *list);
   virtual TCollection* GetListOfDrawableObjects();
 
-  ClassDef(AliHLTexampleMergeableContainer,1)
+  ClassDef(AliHLTexampleMergeableContainer,1);
 };
 #endif
