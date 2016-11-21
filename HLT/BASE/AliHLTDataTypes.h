@@ -1426,6 +1426,12 @@ extern "C" {
   
   extern const AliHLTComponentDataType kAliHLTDataTypeCustomTrigger;
 
+  /** Container of TRD tracks
+   * @ingroup alihlt_component_datatypes
+   */	
+  extern const AliHLTComponentDataType fgkTRDTrackDataType;
+
+
   //////////////////////////////////////////////////////////////////////////
   //
   // FXS subscriber meta information
