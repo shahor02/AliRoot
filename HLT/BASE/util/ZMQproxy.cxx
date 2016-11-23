@@ -33,9 +33,9 @@ void* work(void* param);
 int Run();
 
 //configuration vars
-TString fZMQconfigIN   = "";
-TString fZMQconfigOUT  = "";
-TString fZMQconfigMON  = "";
+TString fZMQconfigIN   = "SUB";
+TString fZMQconfigOUT  = "PUB";
+TString fZMQconfigMON  = "REP";
 
 Bool_t  fSendOnMerge = kTRUE;
 Bool_t  fResetOnSend = kFALSE;
