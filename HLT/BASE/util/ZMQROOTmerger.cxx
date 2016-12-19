@@ -191,8 +191,6 @@ const char* fUSAGE =
     " -SchemaOnSend : include streamers ALWAYS in each sent message\n"
     " -UnpackCollections : cache/merge the contents of the collections instead of the collection itself\n"
     " -UnpackContainers : unpack the contents of AliAnalysisDataContainers\n"
-    " -UnpackCustom : use a custom method to unpack the objects (must return TCollection* AND must be in a collection)\n"
-    " -CustomUnpackMethodName : name of the custom method to call to get a pointer to unpacked objects\n"
     " -IgnoreDefaultContainerNames : don't prefix default container names (TList,TObjArray)\n"
     " -FullyDestroyAnalysisDataContainer : explicitly delete consumers and producer members in the container to work around a memory leak\n"
     " -loadlibs : load ROOT libs, comma separated list\n"
