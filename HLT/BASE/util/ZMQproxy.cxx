@@ -92,15 +92,18 @@ int forward(void* from, void* to, void* mon, zmq_msg_t* msg)
   int rc = 0;
   int more = 0;
   size_t moresize = sizeof(more);
+  int nparts = 0;
   while (true)
   {
     rc = zmq_msg_recv(msg,from,0);
+    ++nparts;
     if (rc<0) return -1;
     rc = zmq_getsockopt(from, ZMQ_RCVMORE, &more, &moresize);
+    if (fVerbose) printf("  part %i more: %i\n",nparts, more);
+    if (rc<0) return -1;
     if (from!=mon) {
       rc = capture(mon,msg,more);
     }
-    if (rc<0) return -1;
     rc = zmq_msg_send(msg,to,more?ZMQ_SNDMORE:0);
     if (rc<0) return -1;
     if (more==0) break;
