@@ -4,7 +4,7 @@ import signal
 import re
 import time
 import binascii
-import struct
+import o2header
 
 def Exit_gracefully(signal, frame):
   context.destroy()
@@ -49,6 +49,7 @@ if len(theMessage)<1:
 if len(theMessage)%2==1:
   theMessage.append("")
 
+# fill in the header information
 for idx in range(0, len(theMessage)):
     if idx%2:
         continue
@@ -56,23 +57,7 @@ for idx in range(0, len(theMessage)):
     origin=theMessage[idx][8:12]
     if origin[:3]=="***":
         origin=origin[:3]+'\0'
-    header=struct.pack(
-            "<4sIII8sQ8s8s4sI8sQQ"
-            ,"O2O2"
-            ,80
-            ,0
-            ,0
-            ,"DataHDR"
-            ,0
-            ,""
-            ,theMessage[idx]
-            ,origin
-            ,0
-            ,""
-            ,0
-            ,payloadSize
-            )
-    theMessage[idx]=header
+    theMessage[idx]=o2header.make(theMessage[idx],origin,payloadSize);
 
 #  Prepare our context and sockets
 context = zmq.Context()
@@ -112,14 +97,16 @@ if mode=="REQ" or mode=="PUSH" or mode=="PUB":
 
 while True:
   if mode=="SUB" or mode=="PULL" or mode=="REP" or mode=="REQ":
+    #raw_input("press a key...")
     msg = socket.recv_multipart();
     print "###################################################"
     i=0;
     for message in msg:
-      dirty = str(message)[0:100]
+      dirty = str(message)[0:2000]
       clean = re.sub('[^\s!-~]', '.', dirty)
       if i==0:
         print "topic: "+clean
+        o2header.dump(message)
         i=1
       elif i==1:
         print "message size: "+str(sys.getsizeof(message))

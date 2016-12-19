@@ -145,5 +145,5 @@ if(ZEROMQ_FOUND)
   
   # Installation of 
   install(TARGETS ZMQexample ZMQfileProxy ZMQROOTmerger ZMQhistSource ZMQhistViewer ZMQproxy ZMQHLTchain RUNTIME DESTINATION bin)
-  install(PROGRAMS ZMQmonitor.py DESTINATION bin)
+  install(PROGRAMS ZMQmonitor.py o2header.py DESTINATION bin)
 endif(ZEROMQ_FOUND)
