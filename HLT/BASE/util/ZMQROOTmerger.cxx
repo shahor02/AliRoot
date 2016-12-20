@@ -262,7 +262,7 @@ public:
   {
     //this method takes ownership of input
     if (!fObject) {
-      if (fVerbose) printf("adding first instance\n");
+      if (fVerbose) printf("adding first instance: %p %s\n",o,o->GetName());
       fObject = o;
       return 0;
     }
@@ -313,7 +313,7 @@ public:
     }
     else
     {
-      if (fVerbose) printf("Object does not implement merge functionality of any kind, caching instead!\n");
+      if (fVerbose) printf("not mergeable, caching instead: %p %s\n",o,o->GetName());
       delete fObject;
       fObject = fMergeList.Remove(o);
       return 0;
@@ -653,6 +653,15 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
   //if we request unpacking: unpack what was requestd, otherwise just add
   do { //fake loop for easy breaking
     if (fUnpackContainers) {
+      AliMergeable* unpackable = dynamic_cast<AliMergeable*>(object);
+      if (unpackable) {
+        if (fVerbose) printf("unpacking custom AliMergeable container %p\n", unpackable);
+        GetObjects(unpackable, &fListOfObjects);
+        if (fVerbose) printf("deleting custom AliMergeable container %p\n", unpackable);
+        delete unpackable;
+        break;
+      }
+
       AliAnalysisDataContainer* container = dynamic_cast<AliAnalysisDataContainer*>(object);
       if (container) {
         //unpack an analysis data container
@@ -660,14 +669,6 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
         GetObjects(container, &fListOfObjects);
         if (fVerbose) printf("deleting analysis container with name %s %p\n", container->GetName(), container);
         delete container;
-        break;
-      }
-      AliMergeable* unpackable = dynamic_cast<AliMergeable*>(object);
-      if (unpackable) {
-        if (fVerbose) printf("unpacking custom AliMergeable container %p\n", unpackable);
-        GetObjects(unpackable, &fListOfObjects);
-        if (fVerbose) printf("deleting custom AliMergeable container %p\n", unpackable);
-        delete unpackable;
         break;
       }
     }
@@ -1263,6 +1264,13 @@ Int_t GetObjects(AliAnalysisDataContainer* kont, std::vector<TObject*>* list, st
 Int_t GetObjects(AliMergeable* unpackable, std::vector<TObject*>* list, std::string prefix)
 {
   TCollection* collection = unpackable->GetListOfDrawableObjects();
+  if (!collection) {
+    if (fVerbose) {
+      TObject* tmp = dynamic_cast<TObject*>(unpackable);
+      printf("requested unpacking, but %s unpacks to NULL, skipping\n",(tmp)?tmp->GetName():"UNKNOWN");
+    }
+    return -1;
+  }
   std::string collName = collection->GetName();
   if (fIgnoreDefaultNamesWhenUnpacking && ( collName=="TObjArray" || collName=="TList" || 
                                             collName=="AliHLTObjArray" || collName=="AliHLTList")) {
@@ -1355,7 +1363,6 @@ Int_t GetObjects(TCollection* collection, std::vector<TObject*>* list, std::stri
         GetObjects(unpackable, list, collPrefix);
         if (fVerbose) Printf("  destroying the AliMergeable object %p",unpackable);
         delete unpackable;
-        delete tmp; //after unpacking we destroy the object
 
     } else {
       //..or just an object
