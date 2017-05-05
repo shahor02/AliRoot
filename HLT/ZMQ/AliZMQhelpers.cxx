@@ -36,10 +36,10 @@ using namespace AliZMQhelpers;
 //init the shared context to null
 void* AliZMQhelpers::gZMQcontext = NULL;
 
-const uint32_t AliZMQhelpers::BaseDataTopic::fgkMagicNumber = CharArr2uint32("O2O2");
-const uint64_t AliZMQhelpers::DataTopic::fgkDataTopicDescription = CharArr2uint64("DataHDR");
-const uint32_t AliZMQhelpers::DataTopic::fgkTopicSerialization = CharArr2uint64("NONE");
-const uint64_t AliZMQhelpers::kSerializationROOT = CharArr2uint64("ROOT   ");
+const UInt_t AliZMQhelpers::BaseDataTopic::fgkMagicNumber = CharArr2uint32("O2O2");
+const ULong64_t AliZMQhelpers::DataTopic::fgkDataTopicDescription = CharArr2uint64("DataHDR");
+const UInt_t AliZMQhelpers::DataTopic::fgkTopicSerialization = CharArr2uint64("NONE");
+const ULong64_t AliZMQhelpers::kSerializationROOT = CharArr2uint64("ROOT   ");
 
 //_______________________________________________________________________________________
 void* AliZMQhelpers::alizmq_context()
@@ -1042,7 +1042,7 @@ AliZMQhelpers::BaseDataTopic::BaseDataTopic()
 }
 
 //______________________________________________________________________________
-AliZMQhelpers::BaseDataTopic::BaseDataTopic(uint32_t size, uint64_t desc, uint64_t seri)
+AliZMQhelpers::BaseDataTopic::BaseDataTopic(UInt_t size, ULong64_t desc, ULong64_t seri)
   : fMagicNumber(fgkMagicNumber)
   , fHeaderSize(size)
   , fFlags(0)
