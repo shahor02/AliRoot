@@ -178,6 +178,8 @@ protected:
   double fvZEROTriggerChargeA;
   double fvZEROTriggerChargeC;
   double fvZEROTriggerChargeAC;
+  
+  double ftZEROAmplitude;
 
   double fzdcZNC;
   double fzdcZNA;
