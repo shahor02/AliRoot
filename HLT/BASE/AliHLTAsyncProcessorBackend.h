@@ -106,6 +106,46 @@ public:
 		return(pthread_mutex_trylock(&fMutexes[i]));
 #endif
 	}
+	
+	int TimedLockMutex(int i, int msec)
+	{
+		struct timespec ts;
+#ifdef __MACH__ // OS X does not have clock_gettime, use clock_get_time
+		clock_serv_t cclock;
+		mach_timespec_t mts;
+		host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &cclock);
+		clock_get_time(cclock, &mts);
+		mach_port_deallocate(mach_task_self(), cclock);
+		ts.tv_sec = mts.tv_sec;
+		ts.tv_nsec = mts.tv_nsec;
+#else
+		clock_gettime(CLOCK_REALTIME, &ts);
+#endif
+		int sec = msec / 1000;
+		ts.tv_sec += sec;
+		msec -= sec * 1000;
+		ts.tv_nsec += msec * 1000000;
+		if (ts.tv_nsec >= 1000000000)
+		{
+			ts.tv_sec += 1;
+			ts.tv_nsec -= 1000000000;
+		}
+#ifdef HLT_ASYNC_USE_SEM_T
+		int s;
+		while ((s = sem_timedwait(&fMutexes[i], &ts)) == -1 && errno == EINTR) continue;
+		if (s == -1)
+		{
+			if (errno == ETIMEDOUT) return(ETIMEDOUT);
+			else return(-1);
+		}
+		return(0);
+#else
+		int retVal = pthread_mutex_timedlock(&fMutexes[i], &ts);
+		if (retVal == ETIMEDOUT) return(ETIMEDOUT);
+		else if (retVal) return(-1);
+		else return(0);
+#endif
+	}
 
 	int StartThread(void* (*function)(void*), void* data)
 	{
