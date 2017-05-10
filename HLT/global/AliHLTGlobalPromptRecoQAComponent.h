@@ -189,6 +189,8 @@ protected:
   double femcalRecoSize;
   double femcalTRU;
   double femcalSTU;
+  
+  double fnTRDTracklets;
 
   double fcompressionRatio;
   double fcompressionRatioFull;
@@ -216,6 +218,8 @@ protected:
   TH2F* fHistTPCCallClustersRowPhi;
   TH2F* fHistDeDxOffline;
   TH2F* fHistDeDxNew[10];
+  TH1D* fHistTRDHCId;
+  TH1D* fHistTPCClusterFlags;
 
   ClassDef(AliHLTGlobalPromptRecoQAComponent, 0)
 };
