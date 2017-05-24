@@ -14,7 +14,7 @@ def make(dataType,origin,payloadSize):
             ,struct.calcsize(O2fmtString)  # 4 header size
             ,0                             # 4 flags
             ,1                             # 4 header version
-            ,"DataHead"                    # 8 header type
+            ,"DataHDR" + '\0'                    # 8 header type
             ,"NONE    "                    # 8 header serialization method
             ,""                            # 8 data description (1) - unused in HLT
             ,dataType                      # 8 data description (2)
