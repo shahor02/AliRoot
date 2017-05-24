@@ -41,6 +41,12 @@ const ULong64_t AliZMQhelpers::DataTopic::fgkDataTopicDescription = CharArr2uint
 const UInt_t AliZMQhelpers::DataTopic::fgkTopicSerialization = CharArr2uint64("NONE");
 const ULong64_t AliZMQhelpers::kSerializationROOT = CharArr2uint64("ROOT   ");
 
+const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeStreamerInfos("ROOTSTRI","***\n",0);
+const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeInfo("INFO____","***\n",0);
+const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeConfig("CONFIG__","***\n",0);
+const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeTObject("ROOTTOBJ","***\n",0);
+const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeTH1("ROOTHIST","***\n",0);
+
 //_______________________________________________________________________________________
 void* AliZMQhelpers::alizmq_context()
 {
@@ -525,6 +531,7 @@ int AliZMQhelpers::alizmq_msg_prepend_streamer_infos(aliZMQmsg* message, aliZMQr
 
   //prepare data msg
   TObjArray listOfInfos;
+  listOfInfos.SetOwner(kTRUE);
   for (aliZMQrootStreamerInfo::const_iterator i=streamers->begin(); i!=streamers->end(); ++i) {
     listOfInfos.Add(*i);
   }
@@ -543,6 +550,18 @@ int AliZMQhelpers::alizmq_msg_prepend_streamer_infos(aliZMQmsg* message, aliZMQr
   message->insert(message->begin(),std::make_pair(topicMsg,dataMsg));
 
   return 0;
+}
+
+//_______________________________________________________________________________________
+void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers, TObject* object)
+{
+  //update the list of streamer infos with the streamers needed for object
+  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, 0, 0, streamers);
+  if (streamers) {
+    alizmq_update_streamerlist(streamers, tmessage->GetStreamerInfos());
+  }
+
+  delete tmessage;
 }
 
 //_______________________________________________________________________________________
@@ -637,7 +656,7 @@ int AliZMQhelpers::alizmq_msg_send(DataTopic& topic, TObject* object, void* sock
   int nBytes = 0;
   int rc = 0;
 
-  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, compression);
+  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, compression, 0, streamers);
   zmq_msg_t dataMsg;
   rc = zmq_msg_init_data( &dataMsg, tmessage->Buffer(), tmessage->Length(),
       alizmq_deleteTObject, tmessage);
@@ -764,8 +783,11 @@ int AliZMQhelpers::alizmq_msg_iter_check_id(aliZMQmsg::iterator it, const std::s
 int AliZMQhelpers::alizmq_msg_iter_topic(aliZMQmsg::iterator it, std::string& topic)
 {
   zmq_msg_t* message = it->first;
-  char* arr = (char*)(&((DataTopic*)zmq_msg_data(message))->fDataDescription[1]);
-  size_t nbytes = sizeof(DataTopic::fDataDescription[2]);
+  void* buf = zmq_msg_data(message);
+  DataTopic* intopic = DataTopic::Get(buf);
+  if (!intopic) return 1;
+  char* arr = reinterpret_cast<char*>(&intopic->fDataDescription[1]);
+  size_t nbytes = sizeof(DataTopic::fDataDescription[1]);
   topic.assign(arr,nbytes);
   return 0;
 }
@@ -791,6 +813,9 @@ int AliZMQhelpers::alizmq_msg_iter_data(aliZMQmsg::iterator it, void*& buffer, s
 int AliZMQhelpers::alizmq_msg_iter_topic(aliZMQmsg::iterator it, DataTopic& topic)
 {
   zmq_msg_t* message = it->first;
+  void* buf = zmq_msg_data(message);
+  DataTopic* intopic = DataTopic::Get(buf);
+  if (!intopic) return 1;
   memcpy(&topic, zmq_msg_data(message),std::min(zmq_msg_size(message),sizeof(topic)));
   return 0;
 }
@@ -1054,11 +1079,11 @@ AliZMQhelpers::BaseDataTopic::BaseDataTopic(UInt_t size, ULong64_t desc, ULong64
 
 //__________________________________________________________________________________________________
 //helper function to print a hex/ASCII dump of some memory
-void AliZMQhelpers::hexDump (const char* desc, void* addr, int len)
+void AliZMQhelpers::hexDump (const char* desc, const void* addr, int len)
 {
   int i;
   unsigned char buff[17];       // stores the ASCII data
-  unsigned char *pc = static_cast<unsigned char*>(addr);     // cast to make the code cleaner.
+  const unsigned char *pc = static_cast<const unsigned char*>(addr);     // cast to make the code cleaner.
 
   // Output description if given.
   if (desc != NULL)

@@ -120,7 +120,7 @@ long fPushbackPeriod = -1;        //in seconds, -1 means never
 long fRequestPeriod = -1;        //in seconds, -1 means never
 long fRequestTimeout = 10000;    //default 10s
 Bool_t fCacheOnly = kFALSE;
-aliZMQrootStreamerInfo* fSchema = NULL;
+aliZMQrootStreamerInfo fSchema;
 bool fSchemaOnRequest = false;
 bool fSchemaOnSend = false;
 int fCompression = 1;
@@ -186,7 +186,6 @@ const char* fUSAGE =
     " -annotateTitleWithContainerName : prepend the container name to title\n"
     " -annotateName : prepend string to the name\n"
     " -ZMQtimeout: when to timeout the sockets (milliseconds)\n"
-    " -schema : include the ROOT streamer infos in the messages containing ROOT objects\n"
     " -SchemaOnRequest : include streamers ONCE (after a request)\n"
     " -SchemaOnSend : include streamers ALWAYS in each sent message\n"
     " -UnpackCollections : cache/merge the contents of the collections instead of the collection itself\n"
@@ -243,6 +242,11 @@ public:
 
   AliZMQROOTMergerEntry& operator=(TObject* o)
   {
+    if (!fObject) {
+      if (fVerbose) printf("adding first cache instance: %p %s\n",o,o->GetName());
+      if (fVerbose) printf("  getting streamers for new object %s\n",o->GetName());
+      alizmq_update_streamerlist(&fSchema, o);
+    }
     delete fObject;
     fObject = o;
     return *this;
@@ -261,6 +265,8 @@ public:
     //this method takes ownership of input
     if (!fObject) {
       if (fVerbose) printf("adding first instance: %p %s\n",o,o->GetName());
+      if (fVerbose) printf("  getting streamers for new object %s\n",o->GetName());
+      alizmq_update_streamerlist(&fSchema, o);
       fObject = o;
       return 0;
     }
@@ -690,7 +696,7 @@ Int_t DoReceive(aliZMQmsg::iterator block, void* socket)
     }
   } while (false);
 
-  //add all extracted objects to the list of veiwer objects
+  //add all extracted objects to the list of mergeable objects
   for (std::vector<TObject*>::iterator i=fListOfObjects.begin();
        i!=fListOfObjects.end(); ++i) {
     AddObject(*i);
@@ -794,7 +800,7 @@ Int_t DoSend(void* socket)
     }
 
     //add data to be sent
-    rc = alizmq_msg_add(&message, &topic, object, fCompression, fSchema);
+    rc = alizmq_msg_add(&message, &topic, object, fCompression, NULL);
     parts++;
 
     if (fResetOnSend || ( fResetOnRequest && fAllowResetOnRequest ))
@@ -811,8 +817,8 @@ Int_t DoSend(void* socket)
     }
   }
 
-  if ((fSchemaOnRequest || fSchemaOnSend) && fSchema) {
-    alizmq_msg_prepend_streamer_infos(&message, fSchema);
+  if ((fSchemaOnRequest || fSchemaOnSend)) {
+    alizmq_msg_prepend_streamer_infos(&message, &fSchema);
   }
 
   int sentBytes = 0;
@@ -1054,18 +1060,12 @@ Int_t ProcessOptionString(TString arguments, Bool_t verbose)
     {
       fAllowClearAtSOR = (value.Contains("0")||value.Contains("no"))?kFALSE:kTRUE;
     }
-    else if (option.EqualTo("schema"))
-    {
-      if (!fSchema) fSchema = new aliZMQrootStreamerInfo;
-    }
     else if (option.EqualTo("SchemaOnRequest"))
     {
-      if (!fSchema) fSchema = new aliZMQrootStreamerInfo;
       fSchemaOnRequest = true;
     }
     else if (option.EqualTo("SchemaOnSend"))
     {
-      if (!fSchema) fSchema = new aliZMQrootStreamerInfo;
       fSchemaOnSend = (value.Contains("0"))?false:true;
     }
     else if (option.EqualTo("UnpackCollections"))
