@@ -23,7 +23,6 @@
 
 #include <string>
 #include <map>
-#include "TString.h"
 #include "TMessage.h"
 #include <inttypes.h>
 struct zmq_msg_t;
