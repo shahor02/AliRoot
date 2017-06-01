@@ -1134,7 +1134,6 @@ TObject* AliZMQhelpers::ZMQTMessage::Extract(const void* pBuffer, unsigned buffe
 {
    /// Helper function to extract an object from a buffer.
    /// The returned object must be cleaned by the caller
-  AliHLTLogging log;
   if (!pBuffer || bufferSize<sizeof(Int_t)) {
     return NULL;
   }
