@@ -26,10 +26,13 @@
 #include <vector>
 
 #include "TObjArray.h"
-#include "AliHLTMessage.h"
+#include "TCollection.h"
 #include "TStreamerInfo.h"
 #include "TClass.h"
 #include "TSystem.h"
+#include "TList.h"
+
+#include <netinet/in.h>
 
 using namespace AliZMQhelpers;
 
@@ -425,7 +428,7 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, TObject*
   memcpy(zmq_msg_data(topicMsg), topic, sizeof(*topic));
 
   //prepare data msg
-  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, compression, 0, streamers);
+  ZMQTMessage* tmessage = ZMQTMessage::Stream(object, compression, 0, streamers);
   if (!tmessage) {
     zmq_msg_close(topicMsg);
     delete topicMsg;
@@ -534,7 +537,7 @@ int AliZMQhelpers::alizmq_msg_prepend_streamer_infos(aliZMQmsg* message, aliZMQr
   for (aliZMQrootStreamerInfo::const_iterator i=streamers->begin(); i!=streamers->end(); ++i) {
     listOfInfos.Add(*i);
   }
-  AliHLTMessage* tmessage = AliHLTMessage::Stream(&listOfInfos, 1); //compress
+  ZMQTMessage* tmessage = ZMQTMessage::Stream(&listOfInfos, 1); //compress
   zmq_msg_t* dataMsg = new zmq_msg_t;
   rc = zmq_msg_init_data( dataMsg, tmessage->Buffer(), tmessage->Length(),
        alizmq_deleteTObject, tmessage);
@@ -552,10 +555,10 @@ int AliZMQhelpers::alizmq_msg_prepend_streamer_infos(aliZMQmsg* message, aliZMQr
 }
 
 //_______________________________________________________________________________________
-void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers, TObject* object)
+void AliZMQhelpers::alizmq_update_streamerlist_from_object(aliZMQrootStreamerInfo* streamers, TObject* object)
 {
   //update the list of streamer infos with the streamers needed for object
-  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, 0, 0, streamers);
+  ZMQTMessage* tmessage = ZMQTMessage::Stream(object, 0, 0, streamers);
   if (streamers) {
     alizmq_update_streamerlist(streamers, tmessage->GetStreamerInfos());
   }
@@ -564,15 +567,15 @@ void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers
 }
 
 //_______________________________________________________________________________________
-void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers, const TObjArray* newStreamers)
+void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers, const TCollection* newStreamers)
 {
   //update the list of streamers used
   if (!streamers) return;
   if (!newStreamers) return;
 
-  for (int i=0; i<newStreamers->GetEntriesFast(); i++) {
-    TVirtualStreamerInfo* info = const_cast<TVirtualStreamerInfo*> (
-      static_cast<const TVirtualStreamerInfo*>((*newStreamers)[i]) );
+  TIter nextStreamer(newStreamers);
+  size_t i = 0;
+  while (TVirtualStreamerInfo* info = static_cast<TVirtualStreamerInfo*>(nextStreamer())) {
     const char* name = info->GetName();
     int version = info->GetClassVersion();
     bool found=false;
@@ -588,6 +591,7 @@ void AliZMQhelpers::alizmq_update_streamerlist(aliZMQrootStreamerInfo* streamers
     if (!found) {
       streamers->push_back(info);
     }
+    ++i;
   }
 }
 
@@ -649,13 +653,13 @@ int AliZMQhelpers::alizmq_msg_iter_init_streamer_infos(aliZMQmsg::iterator it)
 }
 
 //_______________________________________________________________________________________
-int AliZMQhelpers::alizmq_msg_send(DataTopic& topic, TObject* object, void* socket, int flags, 
+int AliZMQhelpers::alizmq_msg_send(DataTopic& topic, TObject* object, void* socket, int flags,
                     int compression, aliZMQrootStreamerInfo* streamers)
 {
   int nBytes = 0;
   int rc = 0;
 
-  AliHLTMessage* tmessage = AliHLTMessage::Stream(object, compression, 0, streamers);
+  ZMQTMessage* tmessage = ZMQTMessage::Stream(object, compression, 0, streamers);
   zmq_msg_t dataMsg;
   rc = zmq_msg_init_data( &dataMsg, tmessage->Buffer(), tmessage->Length(),
       alizmq_deleteTObject, tmessage);
@@ -826,7 +830,7 @@ int AliZMQhelpers::alizmq_msg_iter_data(aliZMQmsg::iterator it, TObject*& object
   size_t size = zmq_msg_size(message);
   void* data = zmq_msg_data(message);
 
-  object = AliHLTMessage::Extract(data, size);
+  object = ZMQTMessage::Extract(data, size);
   return 0;
 }
 
@@ -1123,5 +1127,69 @@ void AliZMQhelpers::hexDump (const char* desc, const void* addr, int len)
 
   // And print the final ASCII bit.
   printf ("  %s\n", buff);
+}
+
+//__________________________________________________________________________________________________
+TObject* AliZMQhelpers::ZMQTMessage::Extract(const void* pBuffer, unsigned bufferSize, unsigned verbosity)
+{
+   /// Helper function to extract an object from a buffer.
+   /// The returned object must be cleaned by the caller
+  AliHLTLogging log;
+  if (!pBuffer || bufferSize<sizeof(Int_t)) {
+    return NULL;
+  }
+
+  Int_t firstWord=*((Int_t*)pBuffer);
+  if (
+      //TODO: these checks are rather braindead as we need to support both
+      //little and big endian sizes on receive - think of something better!
+      (firstWord==bufferSize-sizeof(Int_t) || ntohl(firstWord)==bufferSize-sizeof(Int_t) ) &&
+      firstWord>=34 || ntohl(firstWord)>=34 /*thats the minimum size of a streamed TObject*/
+      )
+  {
+    ZMQTMessage msg((AliHLTUInt8_t*)pBuffer, bufferSize);
+    TClass* objclass=msg.GetClass();
+    TObject* pObject=msg.ReadObject(objclass);
+    if (pObject && objclass) {
+      return pObject;
+    } else {
+    }
+  } else {
+  }
+  return NULL;
+}
+
+//__________________________________________________________________________________________________
+AliZMQhelpers::ZMQTMessage* AliZMQhelpers::ZMQTMessage::Stream(TObject* pSrc, Int_t compression, unsigned verbosity, bool enableSchema)
+{
+  /// Helper function to stream an object into an ZMQTMessage
+  /// The returned instance must be cleaned by the caller
+  ///
+  if (!pSrc) return NULL;
+
+  ZMQTMessage* pMsg=new ZMQTMessage(kMESS_OBJECT);
+  if (!pMsg) {
+    if (verbosity>0) printf("ZMQTMessage: problem allocating a message\n");
+    return NULL;
+  }
+
+  pMsg->EnableSchemaEvolution(enableSchema);
+  pMsg->SetCompressionLevel(compression);
+  pMsg->WriteObject(pSrc);
+  if (pMsg->Length()>=0) {
+    pMsg->SetLength(); // sets the length to the first (reserved) word
+
+    // does nothing if the level is 0
+    pMsg->Compress();
+
+    if (pMsg->CompBuffer()) {
+      pMsg->SetLength(); // set once more to have the byte order
+    } else {
+      if (verbosity>0) printf("ZMQTMessage: no CompBuffer\n");
+    }
+  } else {
+    if (verbosity>0) printf("ZMQTMessage: problem with message length\n");
+  }
+  return pMsg;
 }
 

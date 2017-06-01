@@ -245,7 +245,7 @@ public:
     if (!fObject) {
       if (fVerbose) printf("adding first cache instance: %p %s\n",o,o->GetName());
       if (fVerbose) printf("  getting streamers for new object %s\n",o->GetName());
-      alizmq_update_streamerlist(&fSchema, o);
+      alizmq_update_streamerlist_from_object(&fSchema, o);
     }
     delete fObject;
     fObject = o;
@@ -266,7 +266,7 @@ public:
     if (!fObject) {
       if (fVerbose) printf("adding first instance: %p %s\n",o,o->GetName());
       if (fVerbose) printf("  getting streamers for new object %s\n",o->GetName());
-      alizmq_update_streamerlist(&fSchema, o);
+      alizmq_update_streamerlist_from_object(&fSchema, o);
       fObject = o;
       return 0;
     }

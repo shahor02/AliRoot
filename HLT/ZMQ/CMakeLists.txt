@@ -16,6 +16,8 @@
 # Module
 set(MODULE AliZMQhelpers)
 
+add_definitions(-DAliZMQhelpers_AliHLTMessageFormat)
+
 # Module include folder
 include_directories(${AliRoot_SOURCE_DIR}/HLT/ZMQ
                     ${AliRoot_SOURCE_DIR}/HLT/BASE

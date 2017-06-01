@@ -22,6 +22,7 @@
 
 #include "AliHLTZMQhelpers.h"
 #include "AliHLTMessage.h"
+#include "TObjArray.h"
 #include "zmq.h"
 
 using namespace AliZMQhelpers;
