@@ -207,6 +207,8 @@ protected:
   long long int fTotalClusters;
   long long int fTotalCompressedBytes;
 
+  double fITSSPDvertexZ;
+
   //Fixed histograms with track / cluster properties.
   //These are not created dynamically because that would require quite some CPU resources.
   TH1D* fHistClusterChargeTot;
