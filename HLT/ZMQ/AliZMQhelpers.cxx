@@ -1142,11 +1142,11 @@ TObject* AliZMQhelpers::ZMQTMessage::Extract(const void* pBuffer, unsigned buffe
   if (
       //TODO: these checks are rather braindead as we need to support both
       //little and big endian sizes on receive - think of something better!
-      (firstWord==bufferSize-sizeof(Int_t) || ntohl(firstWord)==bufferSize-sizeof(Int_t) ) &&
-      firstWord>=34 || ntohl(firstWord)>=34 /*thats the minimum size of a streamed TObject*/
+      ( firstWord==bufferSize-sizeof(Int_t) || ntohl(firstWord)==bufferSize-sizeof(Int_t) ) &&
+      ( firstWord>=34 || ntohl(firstWord)>=34 ) /*thats the minimum size of a streamed TObject*/
       )
   {
-    ZMQTMessage msg((AliHLTUInt8_t*)pBuffer, bufferSize);
+    ZMQTMessage msg((char*)pBuffer, bufferSize);
     TClass* objclass=msg.GetClass();
     TObject* pObject=msg.ReadObject(objclass);
     if (pObject && objclass) {
