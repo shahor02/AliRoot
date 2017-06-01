@@ -786,7 +786,7 @@ int AliZMQhelpers::alizmq_msg_iter_topic(aliZMQmsg::iterator it, std::string& to
   DataTopic* intopic = DataTopic::Get(buf);
   if (!intopic) return 1;
   char* arr = reinterpret_cast<char*>(&intopic->fDataDescription[1]);
-  size_t nbytes = sizeof(DataTopic::fDataDescription[1]);
+  size_t nbytes = sizeof(&intopic->fDataDescription[1]);
   topic.assign(arr,nbytes);
   return 0;
 }
