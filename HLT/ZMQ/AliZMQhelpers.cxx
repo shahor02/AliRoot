@@ -1146,7 +1146,7 @@ TObject* AliZMQhelpers::ZMQTMessage::Extract(const void* pBuffer, unsigned buffe
       ( firstWord>=34 || ntohl(firstWord)>=34 ) /*thats the minimum size of a streamed TObject*/
       )
   {
-    ZMQTMessage msg((char*)pBuffer, bufferSize);
+    ZMQTMessage msg(const_cast<void*>(pBuffer), bufferSize);
     TClass* objclass=msg.GetClass();
     TObject* pObject=msg.ReadObject(objclass);
     if (pObject && objclass) {
