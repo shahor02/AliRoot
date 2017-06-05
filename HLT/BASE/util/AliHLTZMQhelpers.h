@@ -26,6 +26,10 @@
 #include "AliZMQhelpers.h"
 #include "AliHLTDataTypes.h"
 #include <inttypes.h>
+#include <cstring>
+#include "TNamed.h"
+#include "TFile.h"
+class AliRawData;
 
 namespace AliZMQhelpers
 {
@@ -89,8 +93,7 @@ struct AliHLTDataTopic : public DataTopic
   bool operator==( const AliHLTComponentDataType& dataType)
   {
     AliHLTComponentDataType dt;
-    memcpy(dt.fID, &fDataDescription[2], kAliHLTComponentDataTypefIDsize);
-    memcpy(dt.fOrigin, &fDataOrigin, kAliHLTComponentDataTypefIDsize);
+    Fill(dt);
     return dt==dataType;
   }
 
@@ -102,11 +105,27 @@ struct AliHLTDataTopic : public DataTopic
 
 };
 
+class AtomicFile {
+  TString targetFileName;
+  TFile* tempFile;
+  public:
+  AtomicFile(const char* name);
+  ~AtomicFile();
+  TFile* GetFile() {return tempFile;}
+  void Close();
+};
 
 int alizmq_msg_iter_check_id(aliZMQmsg::iterator it, const AliHLTDataTopic& topic);
 int alizmq_msg_send(const AliHLTDataTopic& topic, TObject* object, void* socket, int flags,
                     int compression=0, aliZMQrootStreamerInfo* streamers=NULL);
 int alizmq_msg_send(const AliHLTDataTopic& topic, const std::string& data, void* socket, int flags);
+int alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, AliRawData* object);
+
+//file operations
+int alizmq_file_write(AtomicFile& file, aliZMQmsg* message, bool deserializeROOTobjects=kTRUE);
+int alizmq_file_write(AtomicFile& file, const AliHLTDataTopic& topic, TObject* object);
+int alizmq_file_write(AtomicFile& file, const AliHLTDataTopic& topic, const void* buf, Int_t len);
+int alizmq_file_read(TFile& file, aliZMQmsg* message);
 
 }  //end namespace AliZMQhelpers
 

@@ -1436,6 +1436,8 @@ extern "C" {
   
   extern const AliHLTComponentDataType kAliHLTDataTypeCustomTrigger;
 
+  extern const AliHLTComponentDataType kAliHLTDataTypeDIMData;
+
   //////////////////////////////////////////////////////////////////////////
   //
   // FXS subscriber meta information

@@ -64,6 +64,11 @@ class AliHLTZMQsource : public AliHLTComponent, public AliOptionParser  {
     Bool_t fZMQneverBlock;    //dont block on receive
     Bool_t fForwardHLTinput;  //forward everything on HLT input as well as ZMQ input
     unsigned long fOutputBufferSize;    //output buffer size
+    void* fZMQinit;           //init socket
+    TString fZMQinitConfig;   //init socket config string
+    aliZMQmsg fIncomingData;  //the incoming messages
+    Bool_t fSkipSOR;          //whether to skip SOR
+    Bool_t fOnlyOnDataEvents; //inject only in data events
 
     ClassDef(AliHLTZMQsource, 0)
 };

@@ -43,6 +43,7 @@ const UInt_t AliZMQhelpers::BaseDataTopic::fgkMagicNumber = CharArr2uint32("O2O2
 const ULong64_t AliZMQhelpers::DataTopic::fgkDataTopicDescription = CharArr2uint64("DataHDR");
 const UInt_t AliZMQhelpers::DataTopic::fgkTopicSerialization = CharArr2uint64("NONE");
 const ULong64_t AliZMQhelpers::kSerializationROOT = CharArr2uint64("ROOT   ");
+const ULong64_t AliZMQhelpers::kSerializationNONE = CharArr2uint64("NONE   ");
 
 const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeStreamerInfos("ROOTSTRI","***\n",0);
 const AliZMQhelpers::DataTopic AliZMQhelpers::kDataTypeInfo("INFO____","***\n",0);
@@ -1127,6 +1128,20 @@ void AliZMQhelpers::hexDump (const char* desc, const void* addr, int len)
 
   // And print the final ASCII bit.
   printf ("  %s\n", buff);
+}
+
+//__________________________________________________________________________________________________
+void AliZMQhelpers::hexDump (aliZMQmsg* message, size_t maxsize)
+{
+  for (aliZMQmsg::iterator i=message->begin(); i!=message->end(); ++i)
+  {
+    zmq_msg_t* topic = i->first;
+    zmq_msg_t* data = i->second;
+
+    printf("______________________________________________________________________________\n");
+    hexDump("header",zmq_msg_data(topic),zmq_msg_size(topic));
+    hexDump("payload",zmq_msg_data(data),maxsize);
+  }
 }
 
 //__________________________________________________________________________________________________

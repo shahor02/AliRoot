@@ -62,7 +62,7 @@ const char* fUSAGE =
     "options: \n"
     " -out : data out\n"
     " -name : name of the histogram\n"
-    " -sleep : how long to sleep between sending a new one\n"
+    " -sleep : [ms] how long to sleep between sending a new one\n"
     " -distribution : the pdf of the distribution\n"
     " -range : the range of the histogram, comma separated, e.g. -12.,12.\n"
     " -nbins : how many bins\n"
@@ -238,7 +238,7 @@ int ProcessOptionString(TString arguments)
     }
     else if (option.EqualTo("sleep"))
     {
-      fSleep = round(value.Atof()*1e6);
+      fSleep = round(value.Atof()*1e3);
     }
     else if (option.EqualTo("distribution"))
     {
