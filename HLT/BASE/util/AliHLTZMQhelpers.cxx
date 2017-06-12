@@ -144,7 +144,6 @@ int AliZMQhelpers::alizmq_file_write(AtomicFile& afile, const AliHLTDataTopic& t
   //Use AliHLTObjArray/AliHLTList instead.
   //cannot use AliFatal here, so we throw.
   TCollection* collection = dynamic_cast<TCollection*>(object);
-  printf("collection classname: %s\n", collection->ClassName());
   if (collection) {
     if (!collection->IsOwner() &&
         !(strcmp(collection->ClassName(),"AliHLTObjArray")==0 || strcmp(collection->ClassName(),"AliHLTList")==0)) {
