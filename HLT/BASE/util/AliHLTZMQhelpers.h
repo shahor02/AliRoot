@@ -123,7 +123,7 @@ int alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, AliRawData* object);
 
 //file operations
 int alizmq_file_write(AtomicFile& file, aliZMQmsg* message, bool deserializeROOTobjects=kTRUE);
-int alizmq_file_write(AtomicFile& file, const AliHLTDataTopic& topic, TObject* object);
+int alizmq_file_write(AtomicFile& file, AliHLTDataTopic topic, TObject* object);
 int alizmq_file_write(AtomicFile& file, const AliHLTDataTopic& topic, const void* buf, Int_t len);
 int alizmq_file_read(TFile& file, aliZMQmsg* message);
 

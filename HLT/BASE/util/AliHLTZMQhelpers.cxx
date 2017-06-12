@@ -137,7 +137,7 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, AliRawDa
 }
 
 //______________________________________________________________________________
-int AliZMQhelpers::alizmq_file_write(AtomicFile& afile, const AliHLTDataTopic& topic, TObject* object)
+int AliZMQhelpers::alizmq_file_write(AtomicFile& afile, AliHLTDataTopic topic, TObject* object)
 {
   //To avoid problems with resource leaks in the HLT the use of non owning TCollection
   //is forbidden.
@@ -151,6 +151,8 @@ int AliZMQhelpers::alizmq_file_write(AtomicFile& afile, const AliHLTDataTopic& t
       throw std::runtime_error("Cannot use a non-owning TCollection in HLT unless it is a AliHLTList or AliHLTObjArray");
     }
   }
+
+  topic.SetSerialization(kSerializationROOT);
 
   TFile* file = afile.GetFile();
   if (!file) { printf("could not get file\n"); return -1; }
