@@ -28,6 +28,7 @@
 #include "zmq.h"
 #include "AliRawData.h"
 #include "TSystem.h"
+#include <exception>
 
 using namespace AliZMQhelpers;
 
@@ -138,6 +139,20 @@ int AliZMQhelpers::alizmq_msg_add(aliZMQmsg* message, DataTopic* topic, AliRawDa
 //______________________________________________________________________________
 int AliZMQhelpers::alizmq_file_write(AtomicFile& afile, const AliHLTDataTopic& topic, TObject* object)
 {
+  //To avoid problems with resource leaks in the HLT the use of non owning TCollection
+  //is forbidden.
+  //Use AliHLTObjArray/AliHLTList instead.
+  //cannot use AliFatal here, so we throw.
+  TCollection* collection = dynamic_cast<TCollection*>(object);
+  printf("collection classname: %s\n", collection->ClassName());
+  if (collection) {
+    if (!collection->IsOwner() &&
+        !(strcmp(collection->ClassName(),"AliHLTObjArray")==0 || strcmp(collection->ClassName(),"AliHLTList")==0)) {
+      afile.Close();
+      throw std::runtime_error("Cannot use a non-owning TCollection in HLT unless it is a AliHLTList or AliHLTObjArray");
+    }
+  }
+
   TFile* file = afile.GetFile();
   if (!file) { printf("could not get file\n"); return -1; }
   //TODO: do some sanity checks
