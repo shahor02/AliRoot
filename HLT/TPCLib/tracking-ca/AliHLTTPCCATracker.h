@@ -358,14 +358,14 @@ private:
 #endif
   
   //GPU Temp Arrays
-  GPUglobalref() uint3* fRowStartHitCountOffset;				//Offset, length and new offset of start hits in row
+  GPUglobalref() uint3* fRowStartHitCountOffset;			//Offset, length and new offset of start hits in row
   GPUglobalref() AliHLTTPCCAHitId *fTrackletTmpStartHits;	//Unsorted start hits
-  GPUglobalref() MEM_GLOBAL(char)* fGPUTrackletTemp;       //Temp Memory for GPU Tracklet Constructor
+  GPUglobalref() char* fGPUTrackletTemp;					//Temp Memory for GPU Tracklet Constructor
   GPUglobalref() int* fRowBlockTracklets;					//Reference which tracklet is processed in which rowblock next
-  GPUglobalref() int4* fRowBlockPos;							//x is last tracklet to be processed, y is last tracklet already processed, z is last tracklet to be processed in next iteration, w is initial x value to check if tracklet must be initialized  
-  GPUglobalref() uint2* fBlockStartingTracklet;			// First Tracklet that is to be processed by current GPU MP
+  GPUglobalref() int4* fRowBlockPos;						//x is last tracklet to be processed, y is last tracklet already processed, z is last tracklet to be processed in next iteration, w is initial x value to check if tracklet must be initialized  
+  GPUglobalref() uint2* fBlockStartingTracklet;				// First Tracklet that is to be processed by current GPU MP
 
-  MEM_LG(StructGPUParametersConst) fGPUParametersConst; // Parameters for GPU if this is a GPU tracker
+  MEM_LG(StructGPUParametersConst) fGPUParametersConst; 	// Parameters for GPU if this is a GPU tracker
 
   // event
   
