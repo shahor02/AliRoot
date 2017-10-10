@@ -317,10 +317,10 @@ GPUd() int AliHLTTPCGMTrackParam::UpdateTrack(float* PolinomialFieldBz,float pos
     
     //printf("hits %d chi2 %f, new %f %f (dy %f dz %f)\n", N, fChi2, mS0 * z0 * z0, mS2 * z1 * z1, z0, z1);
     float tmpCut = param.HighQPtForward() < fP[4] ? 5 : 5;
-    //if (rejectChi2 && (mS0*z0*z0 > tmpCut || mS2*z1*z1 > tmpCut)) return 2;
+    if (rejectChi2 && (mS0*z0*z0 > tmpCut || mS2*z1*z1 > tmpCut)) return 2;
     fChi2  += mS0*z0*z0;
     fChi2  +=  mS2*z1*z1;
-    //if (fChi2 / (N + 1) > 5) return 1;
+    if (fChi2 / (N + 1) > 5) return 1;
     if( fabs( fP[2] + z0*c20*mS0  ) > maxSinPhi ) return 1;
     
     // MS block
