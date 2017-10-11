@@ -7,7 +7,8 @@
 #include "AliHLTTPCCATracker.h"
 #include "AliHLTTPCCATrackerFramework.h"
 #include "AliHLTTPCGMMergedTrack.h"
-#include "AliHLTTPCGMTrackLinearisation.h"
+//#include "AliHLTTPCGMPhysicalTrackModel.h"
+#include "AliHLTTPCGMPropagator.h"
 #include "include.h"
 #include <algorithm>
 #include <cstdio>
@@ -23,6 +24,7 @@
 #include "TPaveText.h"
 #include "TF1.h"
 #include "TFile.h"
+#include "TStyle.h"
 
 #include "../cmodules/qconfig.h"
 
@@ -439,6 +441,15 @@ void RunQA()
 	}
 	
 	//Fill Resolution Histograms
+	AliHLTTPCGMPropagator prop;
+	const float kRho = 1.025e-3;//0.9e-3;
+	const float kRadLen = 29.532;//28.94;
+	prop.SetMaxSinPhi( .999 );
+	prop.SetMaterial( kRadLen, kRho );
+	prop.SetPolynomialFieldBz( merger.PolinomialFieldBz() );
+	prop.SetUseMeanMomentum(kFALSE );
+	prop.SetContinuousTracking( kFALSE );
+	
 	for (int i = 0; i < merger.NOutputTracks(); i++)
 	{
 		if (trackMCLabels[i] < 0) continue;
@@ -467,16 +478,10 @@ void RunQA()
 		mclocal[3] =-px*s + py*c;
 		
 		AliHLTTPCGMTrackParam param = track.GetParam();
-		AliHLTTPCGMTrackLinearisation t0(param);
-		AliHLTTPCGMTrackParam::AliHLTTPCGMTrackFitParam par;
-		int N = 0;
-		float alpha = track.GetAlpha();
-		float dL = 0., ex1i = 0., trDzDs2 = t0.DzDs() * t0.DzDs();
-		const float kRho = 1.025e-3;//0.9e-3;
-		const float kRadLen = 29.532;//28.94;
-		const float kRhoOverRadLen = kRho / kRadLen;
-		param.CalculateFitParameters( par, kRhoOverRadLen, kRho, false );
-		if (param.PropagateTrack(merger.PolinomialFieldBz(), mclocal[0], mclocal[1], mc1.fZ, track.GetAlpha(), 0, merger.SliceParam(), N, alpha, 0.999, false, false, par, t0, dL, ex1i, trDzDs2)) continue;
+		float alpha = track.GetAlpha();		
+		prop.SetTrack(&param, alpha);	
+		bool inFlyDirection = 0;		
+		if (prop.PropagateToXAlpha( mclocal[0], mclocal[1], mc1.fZ, alpha, inFlyDirection ) ) continue;
 		if (fabs(param.Y() - mclocal[1]) > 4. || fabs(param.Z() - mc1.fZ) > 4.) continue;
 		
 		float deltaY = param.GetY() - mclocal[1];
@@ -574,6 +579,8 @@ int DrawQAHistograms()
 		else sprintf(name, "Resolution versus %s", ParameterNames[i]);
 		cres[ii] = new TCanvas(fname,name,0,0,700,700.*2./3.);
 		cres[ii]->cd();
+		gStyle->SetOptFit(1);
+
 		float dy = 1. / 2.;
 		pres[ii][3] = new TPad( "p0","",0.0,dy*0,0.5,dy*1); pres[ii][3]->Draw();pres[ii][3]->SetRightMargin(0.04);
 		pres[ii][4] = new TPad( "p1","",0.5,dy*0,1.0,dy*1); pres[ii][4]->Draw();pres[ii][4]->SetRightMargin(0.04);

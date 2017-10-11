@@ -33,8 +33,7 @@
 #include "AliHLTTPCClusterXYZ.h"
 #include "AliHLTTPCDataCompressionComponent.h"
 #include "AliHLTTPCDefinitions.h"
-#include "AliHLTTPCGMTrackLinearisation.h"
-#include "AliHLTTPCGMTrackParam.h"
+#include "AliHLTTPCGMPropagator.h"
 #include "AliHLTTPCGMTrackParam.h"
 #include "AliHLTTPCGeometry.h"
 #include "AliHLTTPCRawCluster.h"
@@ -480,7 +479,15 @@ int AliHLTTPCClusterStatComponent::DoEvent(const AliHLTComponentEventData &evtDa
 	const AliHLTUInt8_t *pCurrent = reinterpret_cast<const AliHLTUInt8_t *>(tracks->fTracklets);
 	if (fCompressionStudy)
 	{
-		for (unsigned i = 0; i < tracks->fCount; i++)
+	  AliHLTTPCGMPropagator prop;
+	  const float kRho = 1.025e-3;//0.9e-3;
+	  const float kRadLen = 29.532;//28.94;
+	  prop.SetMaxSinPhi( .999 );
+ 	  prop.SetMaterial( kRadLen, kRho );
+	  prop.SetPolynomialFieldBz( fPolinomialFieldBz );  
+	  prop.SetUseMeanMomentum(kFALSE );
+	  prop.SetContinuousTracking( kFALSE );
+	  for (unsigned i = 0; i < tracks->fCount; i++)
 		{
 			const AliHLTExternalTrackParam *track = reinterpret_cast<const AliHLTExternalTrackParam *>(pCurrent);
 			if (track->fNPoints == 0) continue;
@@ -492,10 +499,7 @@ int AliHLTTPCClusterStatComponent::DoEvent(const AliHLTComponentEventData &evtDa
 
 			AliHLTTPCGMTrackParam ftrack;
 			float falpha;
-			AliHLTTPCGMTrackLinearisation ft0;
-			float ftrDzDs2;
-			AliHLTTPCGMTrackParam::AliHLTTPCGMTrackFitParam fpar;
-
+ 
 			int hitsUsed = 0;
 			float averageCharge = 0;
 			float averageQMax = 0;
@@ -547,8 +551,7 @@ int AliHLTTPCClusterStatComponent::DoEvent(const AliHLTComponentEventData &evtDa
 
 				etrack.Propagate(alpha, x, bz);
 				int rowType = padrow < 64 ? 0 : (padrow < 128 ? 2 : 1);
-				float fdL = 0;
-				float fex1i = 0;
+			       				
 				if (ip == 0)
 				{
 					ftrack.Par()[0] = xyz[1];
@@ -557,22 +560,17 @@ int AliHLTTPCClusterStatComponent::DoEvent(const AliHLTComponentEventData &evtDa
 						ftrack.Par()[k] = etrack.GetParameter()[k];
 					ftrack.SetX(xyz[0]);
 					falpha = alpha;
-
-					ft0.Set(ftrack.GetSinPhi(), 0., 0., ftrack.GetDzDs(), 0., ftrack.GetQPt());
-					ftrDzDs2 = ft0.DzDs() * ft0.DzDs();
-
-					const float kRho = 1.025e-3; //From GMMerger
-					const float kRadLen = 29.532;
-					const float kRhoOverRadLen = kRho / kRadLen;
-					ftrack.CalculateFitParameters(fpar, kRhoOverRadLen, kRho, 0);
-
-					int fakeN;
-					ftrack.PropagateTrack(fPolinomialFieldBz, xyz[0], ftrack.GetY(), ftrack.GetZ(), falpha, rowType, *fSliceParam, fakeN, falpha, .999, 0, 1, fpar, ft0, fdL, fex1i, ftrDzDs2);
+					
+					prop.SetTrack(&ftrack, falpha);					
+					ftrack.ResetCovariance();
+					bool inFlyDirection = 1;
+					prop.PropagateToXAlpha( xyz[0], ftrack.GetY(), ftrack.GetZ(), falpha,  inFlyDirection );
 				}
 				else
 				{
-					int fakeN;
-					ftrack.PropagateTrack(fPolinomialFieldBz, xyz[0], ftrack.GetY(), ftrack.GetZ(), alpha, rowType, *fSliceParam, fakeN, falpha, .999, 0, 0, fpar, ft0, fdL, fex1i, ftrDzDs2);
+				        bool inFlyDirection = 0;
+					prop.PropagateToXAlpha( xyz[0], ftrack.GetY(), ftrack.GetZ(), alpha,  inFlyDirection );
+
 				}
 
 				nClusterTracks++;
@@ -639,9 +637,9 @@ int AliHLTTPCClusterStatComponent::DoEvent(const AliHLTComponentEventData &evtDa
 				averageQMax += cluster.GetQMax();
 
 				if (ip != 0)
-				{
-					int fakeN;
-					ftrack.UpdateTrack(fPolinomialFieldBz, xyz[0], xyz[1], xyz[2], alpha, rowType, *fSliceParam, fakeN, falpha, .999, fpar, fdL, fex1i, ftrDzDs2, false);
+				{				       
+				  //ftrack.UpdateTrack(xyz[1], xyz[2], rowType, *fSliceParam, ft0, .999, false);
+				  prop.Update(xyz[1], xyz[2], rowType, *fSliceParam, false );
 				}
 			}
 			if (hitsUsed)
