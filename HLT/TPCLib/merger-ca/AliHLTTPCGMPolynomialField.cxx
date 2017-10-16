@@ -92,7 +92,7 @@ void AliHLTTPCGMPolynomialField::DumpField( const char *fileName ) const
  
 #else
 
-void AliHLTTPCGMPolynomialField::DumpField( const float *) const
+void AliHLTTPCGMPolynomialField::DumpField( const char *) const
 {
   // do nothing
 }
