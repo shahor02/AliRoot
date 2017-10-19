@@ -2,13 +2,13 @@
 #define TSTATTOOLKIT_H
 /* Copyright(c) 1998-1999, ALICE Experiment at CERN, All rights reserved. *
  * See cxx source for full Copyright notice                               */
+/* $Id$ */
 
-//
-// some utilities which do net exist in the standard ROOT
-//
-/// \file TStatToolkit.h
-/// \class TStatToolkit
+/// \ingroup STAT
+/// \namespace TStatToolkit
 /// \brief Summary of statistics functions
+/// \authors Marian  Ivanov marian.ivanov@cern.ch, Jens Wiechula, Ruben Shahoian,  Sebastian Lehner ...
+
 #include "TMath.h"
 #include "Riostream.h"
 #include "TH1F.h"
@@ -31,7 +31,7 @@
 #include "TFitResultPtr.h"
 #include "TFitResult.h"
 //
-// includes neccessary for test functions
+// includes necessary for test functions
 //
 #include "TSystem.h"
 #include "TRandom.h"
@@ -49,8 +49,7 @@
 //#include "TGraph.h"
 class THashList;
 
-namespace TStatToolkit
-{
+namespace TStatToolkit {
   enum TStatType {kEntries, kSum, kMean, kRMS, kMedian, kLTM, kLTMRMS}; 
   enum ENormType {kL1, kL2, kLp, kMax, kHamming, kNNormType };   // http://en.wikipedia.org/w/index.php?title=Norm_(mathematics)&oldid=655824636
   //
@@ -91,7 +90,7 @@ namespace TStatToolkit
   TNamed *GetMetadata(TTree* tree, const char *vartagName, TString *prefix=0);
   TGraph * MakeGraphSparse(TTree * tree, const char * expr="Entry", const char * cut="1",  Int_t mstyle=25, Int_t mcolor=1, Float_t msize=-1, Float_t offset=0.0);
   TGraphErrors * MakeGraphErrors(TTree * tree, const char * expr="Entry", const char * cut="1",  Int_t mstyle=25, Int_t mcolor=1, Float_t msize=-1, Float_t offset=0.0, Int_t entries=10000000, Int_t firstEntry=0);
-  TMultiGraph * MakeMultGraph(TTree * tree, const char *groupName, const char* expr, const char * cut, const char * markers, const char *colors, Bool_t drawSparse, Float_t msize, Float_t sigmaRange, TLegend * legend);
+  TMultiGraph * MakeMultGraph(TTree * tree, const char *groupName, const char* expr, const char * cut, const char * markers, const char *colors, Bool_t drawSparse, Float_t msize, Float_t sigmaRange, TLegend * legend, Bool_t comp=kTRUE );
   //
   // Fitting function
   //
@@ -686,6 +685,12 @@ Int_t* TStatToolkit::LTMUnbinned(int np, const T *arr, TVectorT<T> &params , Flo
   }
   //
   if (!params[0]) return 0;
+  if (params[2]<0) {
+    ::Error("TStatToolkit::LTMUnbinned","rounding error in RMS<0");
+    // current fast algorithm N  -  Sometimes rounding errors can lead to negative RMS
+    // more precise algorithm N2
+    throw 1;
+  }
   params[2] = TMath::Sqrt(params[2]);
   params[3] = params[2]/TMath::Sqrt(params[0]); // error on mean
   params[4] = params[3]/TMath::Sqrt(2.0); // error on RMS

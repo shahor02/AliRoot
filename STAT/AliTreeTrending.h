@@ -5,11 +5,16 @@
 
 /* $Id$ */
 
-////////////////////////////////////////////////
-// class for visualization of trending trees  //
-//
-////////////////////////////////////////////////
 
+///\ingroup STAT
+///\class AliTreeTrending
+///\brief AliTreeTrending class for the visualization of the QA trending/alarms
+///\author Marian Ivanov
+/*!
+ Generalization of the original TPC QA trending visualization code
+ Example usage in the $AliPhysics_SRC/PWGPP/QA
+ Related JIRA task - https://alice.its.cern.ch/jira/browse/ATO-361
+*/
  
 class TTree;
 class TObjArray;
@@ -24,9 +29,10 @@ public:
   ~AliTreeTrending(){;}
   void SetTree(TTree * tree) {fTree=tree;};
   void AddUserDescription(TNamed *description);  //
-  Bool_t  InitSummaryTrending(TString statusDescription[3], Float_t descriptionSize=0.015);
+  Bool_t  InitSummaryTrending(TString statusDescription[3], Float_t descriptionSize=0.015, TString cutString="");
   void SetDefaultStyle();  // own style to be used - not yet
   void AppendStatusPad(Float_t padratio, Float_t bottomMargin, Float_t rightMargin);
+  // TODO void MakeHtml(char *htmlName, char *varList)
 public:
   TObjArray *  GetTexDescription(TLatex *latex);  // Currently only standard variables
   TTree     *  fTree;              // working tree with friends

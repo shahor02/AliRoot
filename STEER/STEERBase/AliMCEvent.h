@@ -38,7 +38,7 @@ class AliMCEvent : public AliVEvent {
 public:
 
     AliMCEvent();
-    virtual ~AliMCEvent() {;} 
+    virtual ~AliMCEvent();
     AliMCEvent(const AliMCEvent& mcEvnt); 
     AliMCEvent& operator=(const AliMCEvent& mcEvnt);
     //
@@ -132,6 +132,8 @@ public:
     virtual void      SetSecondaryOffset(Int_t ioff)  {fSecondaryOffset = ioff;}    
     virtual Bool_t    IsPhysicalPrimary(Int_t i) const;
 
+     Int_t            GetPrimary(Int_t id);
+  
     virtual Int_t     BgLabelToIndex(Int_t label);
     static  Int_t     BgLabelOffset() {return fgkBgLabelOffset;}
     virtual Bool_t    IsFromBGEvent(Int_t index);
@@ -162,6 +164,7 @@ public:
   virtual Int_t     FindIndexAndEvent(Int_t oldidx, AliMCEvent*& event) const; //RS
 
   Bool_t HasSubsidiaries() const {return fSubsidiaryEvents!=0;}
+  Bool_t IsFromSubsidiaryEvent(int id) const;
   
 private:
     virtual void      ReorderAndExpandTreeTR();

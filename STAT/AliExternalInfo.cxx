@@ -197,7 +197,7 @@ Bool_t AliExternalInfo::Cache(TString type, TString period, TString pass){
   TString rootFileName = "";
   TString treeName = "";
   TString pathStructure = "";
-  TString indexName=""; 
+  TString indexName="";
   TString oldIndexName= fConfigMap[type + ".indexname"];  // rename index branch to avoid incositencies (bug in ROOT - the same index branch name requeired) 
 
   // initialization of external variables
@@ -209,27 +209,47 @@ Bool_t AliExternalInfo::Cache(TString type, TString period, TString pass){
   // Checking if resource needs to be downloaded
   const Bool_t downloadNeeded = IsDownloadNeeded(internalFilename, type);
 
+  TString mifFilePath = ""; // Gets changed in Curl command
+
   if (downloadNeeded == kTRUE){
+    if (resourceIsTree == kTRUE && externalLocation.Contains("http")) {
+      externalLocation += pathStructure + rootFileName;
+      Int_t fstatus=0;
+      TString command = CurlTree(internalFilename, externalLocation);
+      std::cout << command << std::endl;
+      gSystem->Exec(command.Data());
+      TFile * fcache = TFile::Open(internalFilename);
+      if (fcache!=NULL && !fcache->IsZombie()) {
+        fstatus|=1;
+        delete fcache;
+      }
+      if (fstatus==1) {
+        gSystem->GetFromPipe(Form("touch %s",internalFilename.Data()));  // Update the access and modification times of each FILE to the current time
+        return kTRUE;
+      }else{
+        AliError("Curl caching failed");
+        gSystem->GetFromPipe(Form("rm %s",internalFilename.Data()));
+        return kFALSE;
+      }
+    }
     // Download resources in the form of .root files in a tree
-    if (resourceIsTree == kTRUE){
+    if (resourceIsTree == kTRUE ) {
       externalLocation += pathStructure + rootFileName;
       AliInfo(TString::Format("Information retrieved from: %s", externalLocation.Data()));
-
       // Check if external location is a http address or locally accessible
-//       std::cout << externalLocation(0, 4) << std::endl;
+      //    std::cout << externalLocation(0, 4) << std::endl;
       TFile *file = TFile::Open(externalLocation);
-      if (file && !file->IsZombie()){ // Checks if webresource is available
+      if (file && !file->IsZombie()) { // Checks if webresource is available
+        AliInfo("Resource available");
         if (file->Cp(internalFilename)) {
-          AliInfo("Caching successful");
+          AliInfo("Caching with TFile::Cp() successful");
           return kTRUE;
-        }
-        else {
+        } else {
           AliError("Copying to internal location failed");
           return kFALSE;
         }
-      }
-      else {
-        AliError("Ressource not available");
+      } else {
+        AliError("Resource not available");
         return kFALSE;
       }
       delete file;
@@ -243,16 +263,16 @@ Bool_t AliExternalInfo::Cache(TString type, TString period, TString pass){
         externalLocation = TString::Format(externalLocation.Data(), period.Data());
       }
 
-      TString mifFilePath = ""; // Gets changed in Curl command
-      TString command = Curl(mifFilePath, internalLocation, rootFileName, externalLocation);
+
+      TString command = CurlMif(mifFilePath, internalLocation, rootFileName, externalLocation);
 
       std::cout << command << std::endl;
       gSystem->Exec(command.Data());
       if (oldIndexName.Length()==0){
-	gSystem->Exec(TString::Format("cat %s | sed -l 1 s/raw_run/run/ |  sed -l 1 s/RunNo/run/ > %s",mifFilePath.Data(),  (mifFilePath+"RunFix").Data())); // use standrd run number IDS
+        gSystem->Exec(TString::Format("cat %s | sed -l 1 s/raw_run/run/ |  sed -l 1 s/RunNo/run/ > %s",mifFilePath.Data(),  (mifFilePath+"RunFix").Data())); // use standrd run number IDS
       }else{
-	gSystem->Exec(TString::Format("cat %s | sed -l 1 s/%s/%s/  > %s",mifFilePath.Data(), oldIndexName.Data(), indexName.Data(),  (mifFilePath+"RunFix").Data())); // use standrd run number IDS
-      } 
+        gSystem->Exec(TString::Format("cat %s | sed -l 1 s/%s/%s/  > %s",mifFilePath.Data(), oldIndexName.Data(), indexName.Data(),  (mifFilePath+"RunFix").Data())); // use standrd run number IDS
+      }
 
       gSystem->GetFromPipe(TString::Format("cat %s  | sed s_\\\"\\\"_\\\"\\ \\\"_g | sed s_\\\"\\\"_\\\"\\ \\\"_g > %s",  (mifFilePath+"RunFix").Data(),  (mifFilePath+"RunFix").Data()).Data());
       // Store it in a tree inside a root file
@@ -334,7 +354,8 @@ TTree* AliExternalInfo::GetTree(TString type, TString period, TString pass, Int_
     if (fVerbose>1) AliInfo(TString::Format("Successfully read %s/%s",internalFilename.Data(), tree->GetName()));
     if (buildIndex==1) BuildIndex(tree, type);
   } else {
-    AliError("Error while reading tree");
+    AliError("Error while reading tree: ");
+    AliError(TString::Format("ERROR READING: %s", treeName.Data()));
   }
 
   const TString cacheSize=fConfigMap[type + ".CacheSize"];
@@ -659,7 +680,7 @@ Bool_t AliExternalInfo::IsDownloadNeeded(TString file, TString type){
 /// \param externalLocation Location specified in the config file
 /// Composes the curl-command in a TString which afterwards then can be executed
 /// \return curl-command in a TString
-const TString AliExternalInfo::Curl(TString& mifFilePath, const TString& internalLocation, TString rootFileName, const TString& externalLocation){
+const TString AliExternalInfo::CurlMif(TString& mifFilePath, const TString& internalLocation, TString rootFileName, const TString& externalLocation){
   TString command = "";
   TString certificate("$HOME/.globus/usercert.pem");
   TString privateKey("$HOME/.globus/userkey.pem");
@@ -675,6 +696,21 @@ const TString AliExternalInfo::Curl(TString& mifFilePath, const TString& interna
   command = TString::Format("curl -z %s -k --tlsv1 --cert %s --key %s -o %s 2>%s \"%s\"",
                                      mifFilePath.Data(), certificate.Data(), privateKey.Data(),
                                      mifFilePath.Data(), logFileName.Data(), externalLocation.Data());
+  if ((fVerbose&0x4)>0) {
+    ::Info("AliExternalInfo::Curl","%s",command.Data());
+  }
+  return command;
+}
+
+const TString AliExternalInfo::CurlTree(const TString internalFilename, const TString& externalLocation){
+  TString command = "";
+  TString certificate("$HOME/.globus/usercert.pem");
+  TString privateKey("$HOME/.globus/userkey.pem");
+
+
+  command = TString::Format("curl -Lk -z %s --tlsv1 --cert %s --key %s -o %s \"%s\"",     //-L option required to get files from redirected URL
+                                     internalFilename.Data(),certificate.Data(), privateKey.Data(),
+                                     internalFilename.Data(), externalLocation.Data());
 
   return command;
 }
@@ -1134,6 +1170,9 @@ TTree*  AliExternalInfo::GetTreeMCPassGuess(){
                 cout<<"Looking for MC aliphys: "<<tempprod.aliphys<<" MC aliroot: "<<tempprod.aliroot<<endl;
                 if(!((*iter).anchpass).Contains("cpass") && !((*iter).anchpass).Contains("cosmic") && (!isgp || TPRegexp("^pass").MatchB((*iter).anchpass,"i"))){
                 cout<<"Used for guess: RDphys:"<<(*iter).aliphys<<" RDroot: "<<(*iter).aliroot<<" RDpass guess: "<<(*iter).anchpass<<endl;
+                *osrdpass=TObjString(iter->anchpass);
+                *osrdaliphys=TObjString(iter->aliphys);
+                *osrdaliroot=TObjString(iter->aliroot);
                 break;
                     }
                 if(iter==list.begin()) break;
@@ -1182,9 +1221,12 @@ TString  AliExternalInfo::GetMCPassGuess(TString sMCprodname){
 }
  
  char pMCprodname[1000];
+
  TObjString osMCprodname=0;
+ TObjString* osAnchprodname=0;
  TObjString* osMCpassguess=0;
- 
+
+ guesstree->GetBranch("anchorProdTag_ForGuess")->SetAddress(&osAnchprodname); 
  guesstree->GetBranch("prodName")->SetAddress(&pMCprodname);
  guesstree->GetBranch("anchorPassName_guess")->SetAddress(&osMCpassguess);
  
@@ -1193,7 +1235,7 @@ TString  AliExternalInfo::GetMCPassGuess(TString sMCprodname){
      osMCprodname = TObjString(pMCprodname);
      if(osMCprodname.String()==sMCprodname){       //if match found return corresponding guess
          cout<<"Anchor Pass guess for "<<osMCprodname.String()<<": "<<osMCpassguess->String()<<endl;
-         return(osMCpassguess->String());
+         return(osAnchprodname->String()+" "+osMCpassguess->String());
      }
  }
  cout<<osMCprodname.String()<<" was not found in list of MC productions"<<endl;

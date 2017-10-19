@@ -41,6 +41,10 @@
 
 ClassImp(AliStack)
 
+
+TParticle* AliStack::fgDummyParticle = 0;
+const Char_t* AliStack::fgkEmbedPathsKey = "embeddingBKGPaths";
+
 //_______________________________________________________________________
 AliStack::AliStack():
   fParticles("TParticle", 1000),
@@ -672,16 +676,21 @@ void AliStack::SetHighWaterMark(Int_t)
 }
 
 //_____________________________________________________________________________
-TParticle* AliStack::Particle(Int_t i)
+TParticle* AliStack::Particle(Int_t i, Bool_t useInEmbedding)
 {
   //
   // Return particle with specified ID
-
+  if (GetMCEmbeddingFlag() && !useInEmbedding) {
+    AliError("Method should not be called by user in embedding mode, returning dummy particle");
+    if (!fgDummyParticle) fgDummyParticle = new TParticle(21,999,-1,-1,-1,-1,1,1,999,999,0,0,0,0);
+    return fgDummyParticle;
+  }
+  
   if(!fParticleMap.At(i)) {
     Int_t nentries = fParticles.GetEntriesFast();
     // algorithmic way of getting entry index
     // (primary particles are filled after secondaries)
-    Int_t entry = TreeKEntry(i);
+    Int_t entry = TreeKEntry(i,useInEmbedding);
     // check whether algorithmic way and 
     // and the fParticleFileMap[i] give the same;
     // give the fatal error if not
@@ -701,19 +710,24 @@ TParticle* AliStack::Particle(Int_t i)
 }
 
 //_____________________________________________________________________________
-TParticle* AliStack::ParticleFromTreeK(Int_t id) const
+TParticle* AliStack::ParticleFromTreeK(Int_t id, Bool_t useInEmbedding) const
 {
 // 
 // return pointer to TParticle with label id
 //
+  if (GetMCEmbeddingFlag() && !useInEmbedding) {
+    AliError("Method should not be called by user in embedding mode, returning dummy particle");
+    if (!fgDummyParticle) fgDummyParticle = new TParticle(21,999,-1,-1,-1,-1,1,1,999,999,0,0,0,0);
+    return (TParticle*)fgDummyParticle;
+  }
   Int_t entry;
-  if ((entry = TreeKEntry(id)) < 0) return 0;
+  if ((entry = TreeKEntry(id,useInEmbedding)) < 0) return 0;
   if (fTreeK->GetEntry(entry)<=0) return 0;
   return fParticleBuffer;
 }
 
 //_____________________________________________________________________________
-Int_t AliStack::TreeKEntry(Int_t id) const 
+Int_t AliStack::TreeKEntry(Int_t id, Bool_t useInEmbedding) const 
 {
 //
 // Return entry number in the TreeK for particle with label id
@@ -728,6 +742,12 @@ Int_t AliStack::TreeKEntry(Int_t id) const
 // The primaries are written after they have been transported and occupy 
 // fNtrack - fNprimary .. fNtrack - 1
 
+  if (GetMCEmbeddingFlag() && !useInEmbedding) {
+    AliError("Method should not be called by user in embedding mode, returning -1");
+    return -1;
+  }
+
+  
   Int_t entry;
   if (id<fNprimary)
     entry = id+fNtrack-fNprimary;
@@ -754,7 +774,7 @@ Int_t AliStack::GetCurrentParentTrackNumber() const
 }
  
 //_____________________________________________________________________________
-Int_t AliStack::GetPrimary(Int_t id)
+Int_t AliStack::GetPrimary(Int_t id, Bool_t useInEmbedding)
 {
   //
   // Return number of primary that has generated track
@@ -765,7 +785,7 @@ Int_t AliStack::GetPrimary(Int_t id)
   parent=id;
   while (1) {
     current=parent;
-    parent=Particle(current)->GetFirstMother();
+    parent=Particle(current,useInEmbedding)->GetFirstMother();
     if(parent<0) return current;
   }
 }
@@ -954,79 +974,6 @@ void AliStack::ConnectTree(TTree* tree)
     AliWarning("Branch Dir is NOT SET");
 }
 
-// Some utilities used 
-namespace {
-    /** 
-   * Check the heaviest flavour of a particle.  Note, the original
-   * implementation is
-   *
-   *@f$f =  \left\lfloor\frac{c}{10^{\lfloor\log_{10}c\rfloor}}\right\rfloor@f$
-   * 
-   * since it will return 1 for @f$\Upsilon(2\mathrm{S})@f$ (@f$ c=100553@f$). 
-   * 
-   * The coding convention for PDG numbers is 
-   *
-   * @f$ n n_r n_L n_{q1} n_{q2} n_{q3} n_J@f$ 
-   *
-   * which means to guage the quark content we need only the 4
-   * right-most digits.  The most optimal way to extract these is to
-   * format the modulo of the passed number to @f$10\,000@f$, format
-   * that remainder as a string and then take the first character and
-   * convert that to a number by subtracting off the character @c '0'.
-   * 
-   * @param pdg 
-   * 
-   * @return 
-   */
-  Int_t HeaviestFlavour(Int_t pdg)
-  {
-    Int_t apdg = TMath::Abs(pdg);
-    // Special codes for bosons and leptons 
-    if (apdg < 100 && apdg > 6) return 0;
-    // Special codes for nuclei
-    // Ion/nucleus with format 10LZZZAAAI - take the 10L part modulo
-    // 10 to get the L part.  Hyper nucleons with np protons, nn
-    // neutrons, and nl Lambdas have
-    //
-    //    AAA = np+nn
-    //    ZZZ = np
-    //    L   = nl
-    //    I   = isomer level
-    //
-    // Deutron: 1000010020
-    // U(235):  1000922350
-    // 
-    if (apdg > 1000000000) return ((apdg/10000000) % 10) != 0 ? kStrange : kUp;
-    // Take lower 4 digits 
-    Int_t mpdg = apdg % 10000;
-    // Special case for K0L
-    if (mpdg == kK0Long) return kStrange;
-    // If a baryon (>999) then the 4th digit, other wise the 3rd 
-    return mpdg > 999 ? mpdg/1000 : mpdg / 100;
-  }
-  /** 
-   * Check if a particle is heavy flavoured 
-   * 
-   * @param pdg Particle identification code 
-   * 
-   * @return True if the heaviest quark is a charm, bottom, or top
-   */
-  Bool_t IsHeavyFlavour(Int_t pdg)
-  {
-    return HeaviestFlavour(pdg) >= kCharm;
-  }
-  /** 
-   * Check if particle is strange 
-   * 
-   * @param pdg Particle identification code 
-   * 
-   * @return true if heaviest quark is a strange 
-   */
-  Bool_t IsStrange(Int_t pdg)
-  {
-    return HeaviestFlavour(pdg) == kStrange;
-  }
-}
 //_____________________________________________________________________________
 
 Bool_t AliStack::GetEvent()
@@ -1046,100 +993,49 @@ Bool_t AliStack::IsStable(Int_t pdg) const
   //
   // Decide whether particle (pdg) is stable
   //
-  Int_t apdg = TMath::Abs(pdg);
+  
   
   // All ions/nucleons are considered as stable
   // Nuclear code is 10LZZZAAAI
-  if(apdg>1000000000)return kTRUE;
+  if(pdg>1000000000)return kTRUE;
 
-  switch (apdg) {
-  case kGamma:             // 22   Photon
-  case kElectron:          // 11   Electron
-  case kMuonMinus:         // 13   Muon 
-  case kPiPlus:            // 211  Pion
-  case kKPlus:             // 321  Kaon
-  case kK0Short:           // 310  K0s
-  case kK0Long:            // 130  K0l
-  case kProton:            // 2212 Proton 
-  case kNeutron:           // 2112 Neutron
-  case kLambda0:           // 3122 Lambda_0
-  case kSigmaMinus:        // 3112 Sigma Minus
-  case kSigmaPlus:         // 3222 Sigma Plus
-  case kXiMinus:           // 3312 Xi Minus 
-  case 3322:               //      Xi 0 
-  case kOmegaMinus:        // 3334 Omega
-  case kNuE:               // 12   Electron Neutrino 
-  case kNuMu:              // 14   Muon Neutrino
-  case kNuTau:             // 16   Tau Neutrino
-    return true;
-  }
-  return false;
-}
-
-
-//_____________________________________________________________________________
-Bool_t AliStack::IsPhysicalPrimary(Int_t index)
-{
-  // Check wether a given particle is a primary according to the
-  // definition adopted by ALICE:
-  //
-  //   A primary particle is a particle with a mean proper lifetime
-  //   tau than 1cm/c, which is either a) produced directly in the
-  //   interaction, or b) from decays of particles with tau smaller
-  //   than 1cm/c, restricted to decay chains leading to the interaction.
-  //
-  // See also ALICE-PUBLIC-2017-005 at
-  //
-  //   https://cds.cern.ch/record/2270008
-  //
-  // for more on this
-  TParticle* p = Particle(index);
-
-  // Check if this particle has tau >= 1cm/c 
-  if (!IsStable(p->GetPdgCode())) return false;
-
-  // Check if this comes from a primary process (i.e., decay or the
-  // generator)
-  switch (p->GetUniqueID()) {
-  case kPDecay:
-  case kPNoProcess:
-  case kPNull:
-  case kPPrimary:
-    break;
-  default:
-    return false;
-  }
-
-  // Loop back over all mothers
-  TParticle* m  = p;
-  Int_t      mi = 0;
-  while ((mi = m->GetFirstMother()) >= 0) {
-    // Get (grand)mother 
-    m = Particle(mi);
-
-    // If (grand)mother has tau >= 1cm/c, then this (p) isn't a
-    // primary
-    if (IsStable(m->GetPdgCode())) return false;
-
-    // Check that the (grand)mother comes from a primary process e.g.,
-    // decay or from the generator
-    switch (m->GetUniqueID()) {
-    case kPDecay:
-    case kPNoProcess:
-    case kPNull:
-    case kPPrimary:
+  const Int_t kNstable = 18;
+  Int_t i;
+  
+  Int_t pdgStable[kNstable] = {
+    kGamma,             // Photon
+    kElectron,          // Electron
+    kMuonPlus,          // Muon 
+    kPiPlus,            // Pion
+    kKPlus,             // Kaon
+    kK0Short,           // K0s
+    kK0Long,            // K0l
+    kProton,            // Proton 
+    kNeutron,           // Neutron
+    kLambda0,           // Lambda_0
+    kSigmaMinus,        // Sigma Minus
+    kSigmaPlus,         // Sigma Plus
+    3312,               // Xsi Minus 
+    3322,               // Xsi 
+    3334,               // Omega
+    kNuE,               // Electron Neutrino 
+    kNuMu,              // Muon Neutrino
+    kNuTau              // Tau Neutrino
+  };
+    
+  Bool_t isStable = kFALSE;
+  for (i = 0; i < kNstable; i++) {
+    if (pdg == TMath::Abs(pdgStable[i])) {
+      isStable = kTRUE;
       break;
-    default:
-      return false;
     }
   }
-  // If we get here, all (grand)mothers were short lived and came from
-  // primary processes.
-  return true;
+  
+  return isStable;
 }
 
 //_____________________________________________________________________________
-Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
+Bool_t AliStack::IsPhysicalPrimary(Int_t index, Bool_t useInEmbedding)
 {
     //
     // Test if a particle is a physical primary according to the following definition:
@@ -1147,14 +1043,11 @@ Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
     // electromagnetic decay and excluding feed-down from weak decays of strange
     // particles.
     //
-    TParticle* p = Particle(index);
+    TParticle* p = Particle(index,useInEmbedding);
     Int_t ist = p->GetStatusCode();
     
     //
-    // Initial state particle - note, this is tricky - it depends on
-    // what the EG defines as final state (status=1) particles.  Could
-    // be very late in the game if particles are allowed to decay late
-    // in the EG.
+    // Initial state particle
     if (ist > 1) return kFALSE;
     
     Int_t pdg = TMath::Abs(p->GetPdgCode());
@@ -1171,7 +1064,7 @@ Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
 //
 
 	Int_t imo =  p->GetFirstMother();
-	TParticle* pm  = Particle(imo);
+	TParticle* pm  = Particle(imo,useInEmbedding);
 	Int_t mpdg = TMath::Abs(pm->GetPdgCode());
 // Check for Sigma0 
 	if ((mpdg == 3212) &&  (imo <  GetNprimary())) return kTRUE;
@@ -1181,10 +1074,10 @@ Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
 	if ((mpdg == kPi0) && (imo < GetNprimary()))   return kTRUE; 
 
 // Check if this is a heavy flavor decay product
-	Int_t mfl  = HeaviestFlavour(mpdg);
+	Int_t mfl  = Int_t (mpdg / TMath::Power(10, Int_t(TMath::Log10(mpdg))));
 	//
 	// Light hadron
-	if (mfl < kCharm) return kFALSE;
+	if (mfl < 4) return kFALSE;
 	
 	//
 	// Heavy flavor hadron produced by generator
@@ -1196,12 +1089,12 @@ Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
 	// Loop back to the generated mother
 	while (imo >=  GetNprimary()) {
 	    imo = pm->GetFirstMother();
-	    pm  =  Particle(imo);
+	    pm  =  Particle(imo,useInEmbedding);
 	}
 	mpdg = TMath::Abs(pm->GetPdgCode());
-	mfl  = HeaviestFlavour(mpdg);
+	mfl  = Int_t (mpdg / TMath::Power(10, Int_t(TMath::Log10(mpdg))));
 
-	if (mfl < kCharm) {
+	if (mfl < 4) {
 	    return kFALSE;
 	} else {
 	    return kTRUE;
@@ -1209,38 +1102,43 @@ Bool_t AliStack::IsPhysicalPrimaryOld(Int_t index)
     } // produced by generator ?
 } 
 
-Bool_t AliStack::IsSecondaryFromWeakDecay(Int_t index) {
+Bool_t AliStack::IsSecondaryFromWeakDecay(Int_t index, Bool_t useInEmbedding) {
 
   // If a particle is not a physical primary, check if it comes from weak decay
 
-  TParticle* particle = Particle(index);
+  if(IsPhysicalPrimary(index,useInEmbedding)) return kFALSE;
+  
+  TParticle* particle = Particle(index, useInEmbedding);
   Int_t uniqueID = particle->GetUniqueID();
-
-  if(IsPhysicalPrimary(index)) return kFALSE;
 
   Int_t indexMoth = particle->GetFirstMother();
   if(indexMoth < 0) return kFALSE; // if index mother < 0 and not a physical primary, is a non-stable product or one of the beams
-  TParticle* moth = Particle(indexMoth);
+  TParticle* moth = Particle(indexMoth,useInEmbedding);
   Float_t codemoth = (Float_t)TMath::Abs(moth->GetPdgCode());
   // mass of the flavour
   Int_t mfl = 0;
   // Protect the "rootino" case when codemoth is 0
-  if (TMath::Abs(codemoth)>0) mfl = HeaviestFlavour(codemoth);
+  if (TMath::Abs(codemoth)>0) mfl = Int_t (codemoth / TMath::Power(10, Int_t(TMath::Log10(codemoth))));
   
-  if(mfl == kStrange && uniqueID == kPDecay) return kTRUE;// The first mother is strange and it's a decay
+  if(mfl == 3 && uniqueID == kPDecay) return kTRUE;// The first mother is strange and it's a decay
   if(codemoth == 211 && uniqueID == kPDecay) return kTRUE;// pion+- decay products
   if(codemoth == 13 && uniqueID == kPDecay) return kTRUE;// muon decay products
+
+  /// Hypernuclei case
+  if (TMath::Abs(moth->GetPdgCode()) > 1000000000 && uniqueID == kPDecay) {
+    if ((moth->GetPdgCode() / 10000000) % 10 != 0) return kTRUE; /// Number of lambdas in the hypernucleus != 0
+  }
 
   return kFALSE;
   
 }
-Bool_t AliStack::IsSecondaryFromMaterial(Int_t index) {
+Bool_t AliStack::IsSecondaryFromMaterial(Int_t index, Bool_t useInEmbedding) {
 
   // If a particle is not a physical primary, check if it comes from material
 
-  if(IsPhysicalPrimary(index)) return kFALSE;
-  if(IsSecondaryFromWeakDecay(index)) return kFALSE;
-  TParticle* particle = Particle(index);
+  if(IsPhysicalPrimary(index,useInEmbedding)) return kFALSE;
+  if(IsSecondaryFromWeakDecay(index,useInEmbedding)) return kFALSE;
+  TParticle* particle = Particle(index,useInEmbedding);
   Int_t indexMoth = particle->GetFirstMother();
   if(indexMoth < 0) return kFALSE; // if index mother < 0 and not a physical primary, is a non-stable product or one of the beams
   return kTRUE;

@@ -14,6 +14,7 @@
 #include "AliHLTTPCGMBorderTrack.h"
 #include "AliHLTTPCGMSliceTrack.h"
 #include "AliHLTTPCCAGPUTracker.h"
+#include "AliHLTTPCGMPolynomialField.h"
 
 #if !defined(HLTCA_GPUCODE)
 #include <iostream>
@@ -53,7 +54,7 @@ public:
   void SetGPUTracker(AliHLTTPCCAGPUTracker* gpu) {fGPUTracker = gpu;}
   void SetDebugLevel(int debug) {fDebugLevel = debug;}
 
-  float* PolinomialFieldBz() const {return((float*) fPolinomialFieldBz);}
+  AliHLTTPCGMPolynomialField Field() const {return fField;}
 
   int NClusters() const { return(fNClusters); }
   int NOutputTrackClusters() const { return(fNOutputTrackClusters); }
@@ -61,7 +62,7 @@ public:
   float* ClusterY() const {return(fClusterY);}
   float* ClusterZ() const {return(fClusterZ);}
   float* ClusterAngle() const {return(fClusterAngle);}
-  int* ClusterRowType() const {return(fClusterRowType);}
+  int* ClusterRow() const {return(fClusterRow);}
   
 private:
   
@@ -85,6 +86,8 @@ private:
   static const int fgkNSlices = 36;       //* N slices
   int fNextSliceInd[fgkNSlices];
   int fPrevSliceInd[fgkNSlices];
+
+  AliHLTTPCGMPolynomialField fField;
   
   AliHLTTPCCAParam fSliceParam;           //* slice parameters (geometry, calibr, etc.)
   const AliHLTTPCCASliceOutput *fkSlices[fgkNSlices]; //* array of input slice tracks
@@ -103,7 +106,7 @@ private:
   float *fClusterX;         // cluster X
   float *fClusterY;         // cluster Y
   float *fClusterZ;         // cluster Z
-  int *fClusterRowType;  // cluster row type
+  int *fClusterRow;  // cluster row type
   float *fClusterAngle;     // angle    
   AliHLTTPCGMBorderTrack *fBorderMemory; // memory for border tracks
   AliHLTTPCGMBorderTrack::Range *fBorderRangeMemory; // memory for border tracks
@@ -113,8 +116,7 @@ private:
   int fNWays;
 
   int fNClusters;			//Total number of incoming clusters
-
-  float fPolinomialFieldBz[6];   // field coefficients
+  
 };
 
 #endif //ALIHLTTPCCAMERGER_H

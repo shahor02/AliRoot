@@ -19,6 +19,8 @@ AddOptionVec(compareInputNames, const char*, "inputName", 0, "Legend entries for
 AddOption(name, const char*, NULL, "name", 0, "Legend entry for new data from current processing")
 AddOption(output, const char*, NULL, "histOut", 0, "Store histograms in output root file", def("histograms.root"))
 AddOption(inputHistogramsOnly, bool, false, "only", 0, "Do not run tracking, but just create PDFs from input root files")
+AddOption(strict, bool, true, "strict", 0, "Strict QA mode: Only consider resolution of tracks where the fit ended within 5 cm of the reference, and remove outliers.")
+AddOption(qpt, float, 10.f, "qpt", 0, "Set cut for Q/Pt", set(2.f))
 AddHelp("help", 'h')
 EndConfig()
 
@@ -53,6 +55,7 @@ AddOption(outputcontrolmem, unsigned long long int, 0, "outputMemory", 0, "Use p
 AddOption(affinity, int, -1, "cpuAffinity", 0, "Pin CPU affinity to this CPU core", min(-1), message("Setting affinity to restrict on CPU %d"))
 AddOption(fifo, bool, false, "fifoScheduler", 0, "Use FIFO realtime scheduler", message("Setting FIFO scheduler: %s"))
 AddOption(fpe, bool, true, "fpe", 0, "Trap on floating point exceptions")
+AddOption(solenoidBz, float, -5.00668f, "solenoidBz", 0, "Field strength of solenoid Bz in kGaus")
 AddHelp("help", 'h')
 AddHelpAll("helpall", 'H')
 AddSubConfig(structConfigTF, configTF)

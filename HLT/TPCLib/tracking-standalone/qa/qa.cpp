@@ -269,6 +269,7 @@ void RunQA()
 	clusterParam.resize(hlt.GetNMCLabels());
 	memset(clusterParam.data(), 0, clusterParam.size() * sizeof(clusterParam[0]));
 	totalFakes = 0;
+	structConfigQA& config = configStandalone.configQA;	
 
 	if (hlt.GetNMCInfo() == 0 || hlt.GetNMCLabels() == 0)
 	{
@@ -287,7 +288,7 @@ void RunQA()
 		std::vector<AliHLTTPCClusterMCWeight> labels;
 		for (int k = 0;k < track.NClusters();k++)
 		{
-			if (merger.ClusterRowType()[track.FirstClusterRef() + k] < 0) continue;
+			if (merger.ClusterRow()[track.FirstClusterRef() + k] < 0) continue;
 			nClusters++;
 			int hitId = merger.OutputClusterIds()[track.FirstClusterRef() + k];
 			if (hitId >= hlt.GetNMCLabels()) {printf("Invalid hit id %d > %d\n", hitId, hlt.GetNMCLabels());ompError = true;break;}
@@ -346,7 +347,7 @@ void RunQA()
 		{
 			for (int k = 0;k < track.NClusters();k++)
 			{
-				if (merger.ClusterRowType()[track.FirstClusterRef() + k] < 0) continue;
+				if (merger.ClusterRow()[track.FirstClusterRef() + k] < 0) continue;
 				int hitId = merger.OutputClusterIds()[track.FirstClusterRef() + k];
 				bool correct = false;
 				for (int j = 0;j < 3;j++) if (hlt.GetMCLabels()[hitId].fClusterID[j].fMCID == maxLabel.fMCID) {correct=true;break;}
@@ -376,7 +377,7 @@ void RunQA()
 		if (DEBUG && track.OK() && hlt.GetNMCInfo() > maxLabel.fMCID)
 		{
 			const AliHLTTPCCAMCInfo& mc = hlt.GetMCInfo()[maxLabel.fMCID >= 0 ? maxLabel.fMCID : (-maxLabel.fMCID - 2)];
-			printf("Track %d label %d weight %f clusters %d (%f%% %f%%) Pt %f\n", i, maxLabel.fMCID >= 0 ? maxLabel.fMCID : (maxLabel.fMCID + 2), maxLabel.fWeight, track.NClusters(), maxLabel.fWeight / sumweight, (float) maxcount / (float) nClusters, sqrt(mc.fPx * mc.fPx + mc.fPy * mc.fPy));
+			printf("Track %d label %d weight %f clusters %d (%f%% %f%%) Pt %f\n", i, maxLabel.fMCID >= 0 ? maxLabel.fMCID : (maxLabel.fMCID + 2), maxLabel.fWeight, nClusters, maxLabel.fWeight / sumweight, (float) maxcount / (float) nClusters, sqrt(mc.fPx * mc.fPx + mc.fPy * mc.fPy));
 		}
 	}
 	if (ompError) return;
@@ -430,7 +431,7 @@ void RunQA()
 				{
 					if (info.fPrim && mcpt < PT_MIN_PRIM) continue;
 					if (l != 3 && fabs(mceta) > ETA_MAX2) continue;
-					if (l < 4 && mcpt < PT_MIN2) continue;
+					if (l < 4 && mcpt < 1. / config.qpt) continue;
 					
 					float pos = l == 0 ? info.fX : l == 1 ? info.fY : l == 2 ? mcphi : l == 3 ? mceta : mcpt;
 
@@ -446,7 +447,7 @@ void RunQA()
 	const float kRadLen = 29.532;//28.94;
 	prop.SetMaxSinPhi( .999 );
 	prop.SetMaterial( kRadLen, kRho );
-	prop.SetPolynomialFieldBz( merger.PolinomialFieldBz() );
+	prop.SetPolynomialField( merger.Field() );	
 	prop.SetUseMeanMomentum(kFALSE );
 	prop.SetContinuousTracking( kFALSE );
 	
@@ -478,11 +479,17 @@ void RunQA()
 		mclocal[3] =-px*s + py*c;
 		
 		AliHLTTPCGMTrackParam param = track.GetParam();
+		
+		if (mclocal[0] < 80) continue;
+		if (mclocal[0] > param.GetX() + 20) continue;
+
 		float alpha = track.GetAlpha();		
 		prop.SetTrack(&param, alpha);	
-		bool inFlyDirection = 0;		
-		if (prop.PropagateToXAlpha( mclocal[0], mclocal[1], mc1.fZ, alpha, inFlyDirection ) ) continue;
-		if (fabs(param.Y() - mclocal[1]) > 4. || fabs(param.Z() - mc1.fZ) > 4.) continue;
+		bool inFlyDirection = 0;
+		if (config.strict && (param.X() - mclocal[0]) * (param.X() - mclocal[0]) + (param.Y() - mclocal[1]) * (param.Y() - mclocal[1]) + (param.Z() - mc1.fZ) * (param.Z() - mc1.fZ) > 25) continue;
+		
+		if (prop.PropagateToXAlpha( mclocal[0], alpha, inFlyDirection ) ) continue;
+		if (fabs(param.Y() - mclocal[1]) > (config.strict ? 1. : 4.) || fabs(param.Z() - mc1.fZ) > (config.strict ? 1. : 4.)) continue;
 		
 		float deltaY = param.GetY() - mclocal[1];
 		float deltaZ = param.GetZ() - mc1.fZ;
@@ -498,7 +505,7 @@ void RunQA()
 			for (int k = 0;k < 5;k++)
 			{
 				if (k != 3 && fabs(mc2.eta) > ETA_MAX2) continue;
-				if (k < 4 && mc2.pt < PT_MIN2) continue;
+				if (k < 4 && mc2.pt < 1. / config.qpt) continue;
 				res2[j][k]->Fill(resval[j], paramval[k]);
 			}
 		}

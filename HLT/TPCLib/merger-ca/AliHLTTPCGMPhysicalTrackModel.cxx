@@ -19,7 +19,7 @@
 #include "AliHLTTPCGMPhysicalTrackModel.h"
 #include "AliHLTTPCCAMath.h"
 
-inline GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBzLight( float x,  float Bz, float &dLp )
+GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBzLight( float x,  float Bz, float &dLp )
 {
   //
   // transport the track to X=x in magnetic field B = ( 0, 0, Bz[kG*0.000299792458] )
@@ -28,7 +28,6 @@ inline GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBzLight( float x,  
   //
   // Additional values are not recalculated, UpdateValues() has to be called afterwards!!
   //
-  
   float b = fQ*Bz;
   float pt2 = fPx*fPx + fPy*fPy;  
   float dx = x - fX;
@@ -50,12 +49,13 @@ inline GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBzLight( float x,  
     // dS = (Pt/b)*2*arcsin( sa )
     //    = (Pt/b)*2*sa*(1 + 1/6 sa^2 + 3/40 sa^4 + 5/112 sa^6 +... )
     //    =       chord*(1 + 1/6 sa^2 + 3/40 sa^4 + 5/112 sa^6 +... )   
-  
+    
     float sa2 = sa*sa;
     const float k2 = 1./6.;
     const float k4 = 3./40.;
     //const float k6 = 5.f/112.f;
     dS =  chord + chord*sa2*(k2 + k4*sa2);
+    //dS = sqrt(pt2)/b*2.*AliHLTTPCCAMath::ASin( sa );
   }
 
   dLp = pti*dS; // path in XYZ / p == path in XY / pt
@@ -74,7 +74,7 @@ inline GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBzLight( float x,  
 
 
 
-GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBxByBz( float x,  float y,  float z,
+GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBxByBz( float x,
 							      float Bx, float By, float Bz,							      
 							      float &dLp )
 {
@@ -85,11 +85,14 @@ GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBxByBz( float x,  float y,
   //
   
   dLp = 0.;
-   
+
+  AliHLTTPCGMPhysicalTrackModel t = *this;
+
   if(0){ // simple transport in Bz for test proposes
-    if( fabs(x-X())<1.e-8f ) return 0;
-    if( PropagateToXBzLight( x, Bz, dLp ) !=0 ) return -1;
-    UpdateValues(); 
+    if( fabs(x-t.X())<1.e-8f ) return 0;
+    if( t.PropagateToXBzLight( x, Bz, dLp ) !=0 ) return -1;
+    t.UpdateValues(); 
+    *this = t;
     return 0;
   }
   
@@ -119,49 +122,49 @@ GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToXBxByBz( float x,  float y,
   float R0[3] = { c2, s1*s2, c1*s2 };
   float R1[3] = {  0,    c1,   -s1 };	 
   float R2[3] = {-s2, s1*c2, c1*c2 };
-
-
+    
   // parameters and the extrapolation point in the rotated coordinate system
   {
-    float lx = fX, ly = fY, lz=fZ, lpx = fPx, lpy = fPy, lpz = fPz;
+    float lx = t.X(), ly = t.Y(), lz=t.Z(), lpx = t.Px(), lpy = t.Py(), lpz = t.Pz();
  
-    fX = R0[0]*lx + R0[1]*ly + R0[2]*lz;
-    fY = R1[0]*lx + R1[1]*ly + R1[2]*lz;
-    fZ = R2[0]*lx + R2[1]*ly + R2[2]*lz;
+    t.X() = R0[0]*lx + R0[1]*ly + R0[2]*lz;
+    t.Y() = R1[0]*lx + R1[1]*ly + R1[2]*lz;
+    t.Z() = R2[0]*lx + R2[1]*ly + R2[2]*lz;
 
-    fPx = R0[0]*lpx + R0[1]*lpy + R0[2]*lpz;
-    fPy = R1[0]*lpx + R1[1]*lpy + R1[2]*lpz;
-    fPz = R2[0]*lpx + R2[1]*lpy + R2[2]*lpz;
+    t.Px() = R0[0]*lpx + R0[1]*lpy + R0[2]*lpz;
+    t.Py() = R1[0]*lpx + R1[1]*lpy + R1[2]*lpz;
+    t.Pz() = R2[0]*lpx + R2[1]*lpy + R2[2]*lpz;
   }
-  
-  float xe = R0[0]*x + R0[1]*y + R0[2]*z;
+
+  float dx = x - fX;
+  float xe = t.X() + dx; // propagate on same dx in rotated system
 
   // transport in rotated coordinate system to X''=xe:
 
-  if( PropagateToXBzLight( xe, bb, dLp )!=0 ) return -1;
+  if( t.PropagateToXBzLight( xe, bb, dLp )!=0 ) return -1;
 
-  // rotate coordinate system back to the original R{-1}==R.999f {T}
+  // rotate coordinate system back to the original R{-1}==R{T}
   {  
-    float lx = fX, ly = fY, lz=fZ, lpx = fPx, lpy = fPy, lpz = fPz;
+    float lx = t.X(), ly = t.Y(), lz=t.Z(), lpx = t.Px(), lpy = t.Py(), lpz = t.Pz();
  
-    fX = R0[0]*lx + R1[0]*ly + R2[0]*lz;
-    fY = R0[1]*lx + R1[1]*ly + R2[1]*lz;
-    fZ = R0[2]*lx + R1[2]*ly + R2[2]*lz;
+    t.X() = R0[0]*lx + R1[0]*ly + R2[0]*lz;
+    t.Y() = R0[1]*lx + R1[1]*ly + R2[1]*lz;
+    t.Z() = R0[2]*lx + R1[2]*ly + R2[2]*lz;
 
-    fPx = R0[0]*lpx + R1[0]*lpy + R2[0]*lpz;
-    fPy = R0[1]*lpx + R1[1]*lpy + R2[1]*lpz;
-    fPz = R0[2]*lpx + R1[2]*lpy + R2[2]*lpz;
+    t.Px() = R0[0]*lpx + R1[0]*lpy + R2[0]*lpz;
+    t.Py() = R0[1]*lpx + R1[1]*lpy + R2[1]*lpz;
+    t.Pz() = R0[2]*lpx + R1[2]*lpy + R2[2]*lpz;
   }
 
   // a small (hopefully) additional step to X=x. Perhaps it may be replaced by linear extrapolation.
-  
+
   float ddLp = 0;
-  if( PropagateToXBzLight( x, Bz, ddLp ) !=0 ) return -1;
+  if( t.PropagateToXBzLight( x, Bz, ddLp ) !=0 ) return -1;
   
   dLp+=ddLp;
 
-  UpdateValues();
-  
+  t.UpdateValues();
+  *this = t;  
   return 0;
 }
 
@@ -219,13 +222,13 @@ GPUd() int AliHLTTPCGMPhysicalTrackModel::PropagateToLpBz( float Lp, float Bz )
   return 0;
 }
 
-#if !defined(HLTCA_GPUCODE)
-#include <iostream>
+#if !defined(HLTCA_GPUCODE) & !defined(HLTCA_STANDALONE)
+#include <Riostream.h>
 #endif
 
 GPUd() void AliHLTTPCGMPhysicalTrackModel::Print() const
 {
-#if !defined(HLTCA_GPUCODE)
+#if !defined(HLTCA_GPUCODE) & !defined(HLTCA_STANDALONE)
   std::cout<<"AliHLTTPCGMPhysicalTrackModel:  x "<<fX<<" y "<<fY<<" z "<<fZ<<" px "<<fPx<<" py "<<fPy<<" pz "<<fPz<<" q "<<fQ<<std::endl;
 #endif
 }

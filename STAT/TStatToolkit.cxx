@@ -13,13 +13,12 @@
  * provided "as is" without express or implied warranty.                  *
  **************************************************************************/
 
+//-----------------------------------------------------------------------------
+/// \namespace TStatToolkit
+/// \authors Marian Ivanov, Jens Wiechula, Ruben Shahoian,  Sebastian Lehner ...
+/// Subset of  mathematical functions not included in the TMath
+//-----------------------------------------------------------------------------
 
-///////////////////////////////////////////////////////////////////////////
-/// \file TStatToolkit.cxx
-/// \class TStatToolkit
-/// \brief Summary of statistics functions
-/// Subset of  matheamtical functions  not included in the TMath
-//
 //
 /////////////////////////////////////////////////////////////////////////
 #include "TStopwatch.h"
@@ -27,15 +26,14 @@
 #include "TTreeFormula.h"
 #include "TLegend.h"
 #include "TPRegexp.h"
+#include "AliDrawStyle.h"
 
 using std::cout;
 using std::cerr;
 using std::endl;
 
 //_____________________________________________________________________________
-void TStatToolkit::EvaluateUni(Int_t nvectors, Double_t *data, Double_t &mean
-                           , Double_t &sigma, Int_t hh)
-{
+void TStatToolkit::EvaluateUni(Int_t nvectors, Double_t *data, Double_t &mean, Double_t &sigma, Int_t hh) {
   //
   // Robust estimator in 1D case MI version - (faster than ROOT version)
   //
@@ -91,8 +89,7 @@ void TStatToolkit::EvaluateUni(Int_t nvectors, Double_t *data, Double_t &mean
 
 
 
-void TStatToolkit::EvaluateUniExternal(Int_t nvectors, Double_t *data, Double_t &mean, Double_t &sigma, Int_t hh,  Float_t externalfactor)
-{
+void TStatToolkit::EvaluateUniExternal(Int_t nvectors, Double_t *data, Double_t &mean, Double_t &sigma, Int_t hh,  Float_t externalfactor) {
   // Modified version of ROOT robust EvaluateUni
   // robust estimator in 1D case MI version
   // added external factor to include precision of external measurement
@@ -1038,11 +1035,11 @@ TGraphErrors * TStatToolkit::MakeGraphErrors(TTree * tree, const char * expr, co
   if (msize>0) graph->SetMarkerSize(msize);
   for(Int_t i=0;i<graph->GetN();i++) graph->GetX()[i]+=offset;
   //
-  if (tree->GetVar(1)->IsInteger()){
+  if (tree->GetVar(1)->IsString()){ // use string for axis description
     TAxis * axis = tree->GetHistogram()->GetXaxis();
     axis->Copy(*(graph->GetXaxis()));
   }
-  if (tree->GetVar(0)->IsInteger()){
+  if (tree->GetVar(0)->IsString()){
     TAxis * axis = tree->GetHistogram()->GetYaxis();
     axis->Copy(*(graph->GetYaxis()));
   }
@@ -1128,7 +1125,7 @@ TNamed* TStatToolkit::GetMetadata(TTree* tree, const char *vartagName, TString *
   return named;
 
 }
- 
+
 
 TGraph * TStatToolkit::MakeGraphSparse(TTree * tree, const char * expr, const char * cut, Int_t mstyle, Int_t mcolor, Float_t msize, Float_t offset){
   //
@@ -1143,7 +1140,6 @@ TGraph * TStatToolkit::MakeGraphSparse(TTree * tree, const char * expr, const ch
     ::Error("TStatToolkit::MakeGraphSparse","Empty or Not valid expression (%s) or cut (%s)", expr, cut);
     return 0;
   }
-  //  TGraph * graph = (TGraph*)gPad->GetPrimitive("Graph"); // 2D
 
   Double_t *graphY, *graphX;
   graphY = tree->GetV1();
@@ -1213,9 +1209,6 @@ TGraph * TStatToolkit::MakeGraphSparse(TTree * tree, const char * expr, const ch
     }
   }
 
-
-
-
   graphNew->GetHistogram()->SetTitle("");
   graphNew->SetMarkerStyle(mstyle);
   graphNew->SetMarkerColor(mcolor);  graphNew->SetLineColor(mcolor);
@@ -1258,30 +1251,33 @@ TGraph * TStatToolkit::MakeGraphSparse(TTree * tree, const char * expr, const ch
   return graphNew;
 }
 
+/// Create MultiGraphs
+///  \param tree       - tree containing data to be plot
+///  \param groupname  - name of the output graph
+///  \param expr       - string <variablearray>:<tagID>:<variablearrayError>
+///                      <variablearray>="var0; ...; varN  
+///                      <variablearrayError>="err0; ...;errN"
+///  \param cut        - string "selection", resp. cut array
+///                    - <variablearray>="defaultCut;cut0;cut1;...; cutN"
+///  \param markers    - "marker0:...; markerN"
+///  \param colors     - "color0:...; colorN"
+///  \param drawSparse - swith use sparse drawing
+///  \param comp       - swith: demanding that every variable in expr returened a plot OR accepting variables yielding no result 
+/// Example usage 
+/// \code
+/// Example usage of the TSTatToolkit::MakeMultGraph for T0 QA     :
+///
+///  legend=new TLegend(0.1,0.1,0.3,0.3,"T0 <Q> per sector");
+///  legend->SetNColumns(2);
+///  TMultiGraph * mGraph=TStatToolkit::MakeMultGraph(tree, "T0 <Q>","amplPMT1;amplPMT2;amplPMT3;amplPMT4;amplPMT5;amplPMT6:tagID:0.02;0.02;0.02;0.02;0.02;0.02","","21;22;25;26;27;28","1;2;4;3;856;616",kTRUE,0.9,10, legend);
+///  mGraph->Draw();
+///  legend->Draw();
+/// \endcode
+TMultiGraph * TStatToolkit::MakeMultGraph(TTree * tree, const char *groupName, const char* expr, const char * cut, const char * markers, const char *colors, Bool_t drawSparse, Float_t msize, Float_t sigmaRange, TLegend * legend, Bool_t comp){
 
-TMultiGraph * TStatToolkit::MakeMultGraph(TTree * tree, const char *groupName, const char* expr, const char * cut, const char * markers, const char *colors, Bool_t drawSparse, Float_t msize, Float_t sigmaRange, TLegend * legend){
-  //
-  // Make multigraph.
-  //  TTree * tree  - input tree
-  //  groupName     - name of the output graph
-  //  expr          - string <variablearray>:<tagID>:<variablearrayError>
-  //                  <variablearray>="var0; ...; varN  
-  //                  <variablearrayError>="err0; ...;errN"
-  //  markers       - "marker0:...; markerN"
-  //  colors        - "color0:...; colorN"
-  //  drawSparse    - swith use sparse drawing
-  //
-  /* 
-     Example usage of the TSTatToolkit::MakeMultGraph for T0 QA     :
-
-     legend=new TLegend(0.1,0.1,0.3,0.3,"T0 <Q> per sector");
-     legend->SetNColumns(2);
-     TMultiGraph * mGraph=TStatToolkit::MakeMultGraph(tree, "T0 <Q>","amplPMT1;amplPMT2;amplPMT3;amplPMT4;amplPMT5;amplPMT6:tagID:0.02;0.02;0.02;0.02;0.02;0.02","","21;22;25;26;27;28","1;2;4;3;856;616",kTRUE,0.9,10, legend);
-     mGraph->Draw();
-     legend->Draw();
-  */  
   TMultiGraph *multiGraph=new TMultiGraph(groupName,groupName);
   TObjArray * exprVars=TString(expr).Tokenize(":");
+
   if (exprVars->GetEntries()<2) {
     ::Error("MakeMultGraph","NotValid expression %s",expr);
     delete exprVars;
@@ -1289,62 +1285,79 @@ TMultiGraph * TStatToolkit::MakeMultGraph(TTree * tree, const char *groupName, c
   }
   TObjArray*exprVarArray = TString(exprVars->At(0)->GetName()).Tokenize(";");
   TObjArray*exprVarErrArray=(exprVars->GetEntries()>2)?  TString(exprVars->At(2)->GetName()).Tokenize(";"):0;
-  TObjArray*exprColors= TString(colors).Tokenize(";");
-  TObjArray*exprMarkers= TString(markers).Tokenize(";");
-  Int_t notOK=exprVarArray->GetEntries()<1;
-  notOK+=2*(exprVarArray->GetEntriesFast()>exprColors->GetEntriesFast());
-  notOK+=4*(exprVarArray->GetEntriesFast()>exprMarkers->GetEntriesFast());
-  if (exprVarErrArray) notOK+=8*(exprVarArray->GetEntriesFast()!=exprVarErrArray->GetEntriesFast());
+  TObjArray*exprCutArray= TString(cut).Tokenize(";");
+  //
+  //Int markerStyle=AliDrawStyle::GetMarkerStyles(markers);
+  Int_t notOK=(exprVarArray->GetEntries()<1 && exprCutArray->GetEntries()<2);
+  if (exprVarErrArray) notOK+=2*(exprVarArray->GetEntriesFast()!=exprVarErrArray->GetEntriesFast());
   if (notOK>0){
-    ::Error("MakeMultGraph","Not compatible arrays of variables:color:markers Problem %d", notOK);
+    ::Error("MakeMultGraph","Not compatible arrays of variables:err variables or cuts - Problem %d", notOK);
     exprVarArray->Print();
-    exprColors->Print();
-    exprMarkers->Print();
+    exprCutArray->Print();
     if (exprVarErrArray) exprVarErrArray->Print();
     delete  exprVars;
     return 0;
   }
-
-  Int_t ngraphs = exprVarArray->GetEntries();
+  Int_t nCuts= TMath::Max(exprCutArray->GetEntries()-1,1);
+  Int_t nExpr= exprVarArray->GetEntries();
+  Int_t ngraphs = nCuts*nExpr;
   Double_t minValue=1;
   Double_t maxValue=-1;
   TVectorF vecMean(ngraphs);
-  for (Int_t igraph=0; igraph<ngraphs; igraph++){
-    Int_t color=TString(exprColors->At(igraph)->GetName()).Atoi();
-    Int_t marker=TString(exprMarkers->At(igraph)->GetName()).Atoi();
+  Bool_t flag = kFALSE;
+  for (Int_t iGraph=0; iGraph<ngraphs; iGraph++){
+    Int_t color=AliDrawStyle::GetMarkerColor(colors,iGraph);
+    Int_t marker=AliDrawStyle::GetMarkerStyle(markers, iGraph);
+    Int_t iCut =iGraph%nCuts;
+    Int_t iExpr=iGraph/nCuts;
+    const char *expName=exprVarArray->At(iExpr)->GetName();
+    const char *xName=exprVars->At(1)->GetName();
+    const char *expErrName=(exprVarErrArray==NULL)? NULL:exprVarErrArray->At(iExpr)->GetName();
+    TString cCut=exprCutArray->At(0)->GetName();
+    if (nCuts>1){
+      cCut+="&&";
+      cCut+=exprCutArray->At(iCut+1)->GetName();
+    }
     TGraph * gr = 0;
     if (drawSparse){
       if (exprVarErrArray==NULL){
-	gr=TStatToolkit::MakeGraphSparse(tree, TString::Format("%s:%s",exprVarArray->At(igraph)->GetName(),exprVars->At(1)->GetName()).Data(),cut, marker,color,msize);
+        gr=TStatToolkit::MakeGraphSparse(tree, TString::Format("%s:%s",expName,xName).Data(),cCut.Data(), marker,color,msize);
       }else{
-	gr=TStatToolkit::MakeGraphSparse(tree, TString::Format("%s:%s:%s",exprVarArray->At(igraph)->GetName(),exprVars->At(1)->GetName(),exprVarErrArray->At(igraph)->GetName()).Data(),cut, marker,color,msize);
+        gr=TStatToolkit::MakeGraphSparse(tree, TString::Format("%s:%s:%s",expName,xName,expErrName).Data(),cCut.Data(), marker,color,msize);
       }
     }else{
       if (exprVarErrArray==NULL){
-	gr=TStatToolkit::MakeGraphErrors(tree, TString::Format("%s:%s",exprVarArray->At(igraph)->GetName(),exprVars->At(1)->GetName()).Data(),cut, marker,color,msize);
+        gr=TStatToolkit::MakeGraphErrors(tree, TString::Format("%s:%s",expName,xName).Data(),cCut.Data(), marker,color,msize);
       }else{
-	gr=TStatToolkit::MakeGraphErrors(tree, TString::Format("%s:%s:%s",exprVarArray->At(igraph)->GetName(),exprVars->At(1)->GetName(),exprVarErrArray->At(igraph)->GetName()).Data(),cut, marker,color,msize);
+        gr=TStatToolkit::MakeGraphErrors(tree, TString::Format("%s:%s:%s",expName,xName,expErrName).Data(),cCut.Data(), marker,color,msize);
       }
     }
     if (gr) {
-      if (marker<=0) 	{  // explictly speify draw options - try to avoid bug in TMultiGraph draw in xaxis definition
-	multiGraph->Add(gr);
-      }else{      
-	if (igraph==0){
-	  multiGraph->Add(gr,"ap");
-	}else{
-	  multiGraph->Add(gr,"p");
-	}
+      if (marker<=0) 	{  // explicitly specify draw options - try to avoid bug in TMultiGraph draw in xaxis definition
+        multiGraph->Add(gr);
+      }else{
+        if (iGraph==0){
+          multiGraph->Add(gr,"ap");
+        }else{
+          multiGraph->Add(gr,"p");
+        }
       }
-    }
-    if (igraph==0){
-      //      multiGraph->GetXaxis()->Copy(*(gr->GetXaxis()));
     }
     Double_t meanT,rmsT=0;
     if (gr==NULL){
-      ::Error("MakeMultGraph","Not valid sub-expression %s",exprVarArray->At(igraph)->GetName());
-      continue;
+      if(comp){
+        ::Error("MakeMultGraph","Not valid expression %s or cut %s - return",expName,cCut.Data());
+        delete exprVarArray;
+        delete exprVarErrArray;
+        delete exprCutArray;
+        return 0;
+      }
+      else{
+        ::Error("MakeMultGraph","Not valid sub-expression %s or cut %s - continue",expName,cCut.Data());
+        continue;
+      }
     }
+    flag=kTRUE;
     if (gr->GetN()>2){
       TStatToolkit::EvaluateUni(gr->GetN(),gr->GetY(), meanT,rmsT, TMath::Max(0.75*gr->GetN(),1.));
     }else{
@@ -1355,35 +1368,64 @@ TMultiGraph * TStatToolkit::MakeMultGraph(TTree * tree, const char *groupName, c
       maxValue=meanT+sigmaRange*rmsT;
       minValue=meanT-sigmaRange*rmsT;
     }
-    vecMean[igraph]=meanT;
+    vecMean[iGraph]=meanT;
     if (minValue>meanT-sigmaRange*rmsT) minValue=meanT-sigmaRange*rmsT;
     if (maxValue<meanT+sigmaRange*rmsT) maxValue=meanT+sigmaRange*rmsT;
+    if (legend){
+      TString prefix="";
+      TString legendName="";
+      TNamed*named = TStatToolkit::GetMetadata(tree,TString::Format("%s.Legend",expName).Data(),&prefix);
+      if (named) {
+        legendName+=named->GetName();
+      }else{
+        legendName=expName;
+      }
+      if (nCuts>1){
+        legendName+=" ";
+        named = TStatToolkit::GetMetadata(tree,TString::Format("%s.Legend",exprCutArray->At(iCut+1)->GetName()).Data(),&prefix);
+        if (named) {
+          legendName+=named->GetName();
+        }else{
+          legendName=exprCutArray->At(iCut+1)->GetName();
+        }
+      }
+        legend->AddEntry(gr,legendName,"p");
+    }
+  }
+
+  if(!flag){
+    ::Error("Test::","Number of graphs 0 -return 0");
+    delete exprVarArray;
+    delete exprVarErrArray;
+    //delete exprColors;
+    //delete exprMarkers;
+    return 0;
   }
   Double_t rmsGraphs = TMath::RMS(ngraphs,  vecMean.GetMatrixArray());
   minValue-=sigmaRange*rmsGraphs;
   maxValue+=sigmaRange*rmsGraphs;
-  //
-  for (Int_t igr=0; igr<ngraphs; igr++){
-    TGraph * gr = (TGraph*)(multiGraph->GetListOfGraphs()->At(igr));
-    if (gr==NULL) continue;
+  Double_t xmin=0,xmax=0;
+  for (Int_t igr=0; igr<multiGraph->GetListOfGraphs()->GetSize(); igr++){
+    TGraph* gr = (TGraph*)(multiGraph->GetListOfGraphs()->At(igr));
     gr->SetMinimum(minValue);
     gr->SetMaximum(maxValue);
-    if (legend){
-      TString prefix="";
-      TNamed*named = TStatToolkit::GetMetadata(tree,TString::Format("%s.Legend",exprVarArray->At(igr)->GetName()).Data(),&prefix);
-      if (named){
-	legend->AddEntry(gr,TString::Format("%s %s",prefix.Data(), named->GetTitle()).Data(),"p");
-      }else{
-	legend->AddEntry(gr,gr->GetTitle(),"p");
-      }
+    if (igr==0){
+      xmin=gr->GetXaxis()->GetXmin();
+      xmax=gr->GetXaxis()->GetXmax();
     }
+    if (xmin>gr->GetXaxis()->GetXmin()) xmin=gr->GetXaxis()->GetXmin();
+    if (xmax<gr->GetXaxis()->GetXmax()) xmax=gr->GetXaxis()->GetXmax();
+  }
+  // multiGraph->GetXaxis()->SetLimits(xmin,xmax); // BUG/FEATURE mutli graph axis not defined in this moment  (pointer==0)
+  for (Int_t igr=0; igr<multiGraph->GetListOfGraphs()->GetSize(); igr++) {
+    TGraph *gr = (TGraph * )(multiGraph->GetListOfGraphs()->At(igr));
+    if (gr!=NULL) gr->GetXaxis()->SetLimits(xmin,xmax);
   }
   multiGraph->SetMinimum(minValue);
   multiGraph->SetMaximum(maxValue);
   delete exprVarArray;
   delete exprVarErrArray;
-  delete exprColors;
-  delete exprMarkers;
+  delete exprCutArray;
   return multiGraph;
 }
 
@@ -1688,43 +1730,45 @@ void TStatToolkit::MakeCombinedAlias(TTree * tree, TString& sCombinedStatus, Boo
 }  
 
 
-
+/// Compute a trending multigraph that shows for which runs a variable has outliers.
+/// format of expr :  varname:xaxis (e.g. meanTPCncl:run, but 'varname' can be any string that you need for seach-and-replace)
+/// format of cut  :  char like in TCut
+/// format of alias:  (1):(statisticOK):(varname_Warning):(varname_Out)[:(varname_PhysAcc):(varname_Extra)]
+///
+/// function MakeGraphSparse() is called for each alias argument, which will be used as tree expression.
+/// each alias argument is supposed to be a Boolean statement which can be evaluated as tree expression.
+/// the order of these criteria should be kept, as the marker styles and colors are chosen to be meaningful this way!
+/// 'statisticOK' could e.g. be an alias for '(meanTPCncl>0)'.
+/// if you dont need e.g. a 'warning' condition, then just replace it by (0).
+/// in the alias, 'varname' will be replaced by its content (e.g. varname_Out -> meanTPCncl_Out)
+/// note: the aliases 'varname_Out' etc have to be defined by function TStatToolkit::SetStatusAlias(...)
+/// counter igr is used to shift the multigraph in y when filling a TObjArray.
+///  \param tree       - tree containing data to be plot
+///  \param expr       - string <variablearray>:<tagID>:<variablearrayError>
+///                      <variablearray>="var0; ...; varN  
+///                      <variablearrayError>="err0; ...;errN"
+///  \param alias      - Boolean statement which can be evaluated as tree expression
+///  \param igr        - counter used to shift the multigraph in y when filling a TObjArray
+/// Example usage 
+/// \code
+/// To create the Status Bar, the following is done in principle.
+/// ( example current usage in $ALICE_ROOT/PWGPP/TPC/macros/drawPerformanceTPCQAMatchTrends.C and ./qaConfig.C. )
+///
+/// TStatToolkit::SetStatusAlias(tree, "meanTPCncl",    "", "varname_Out:(abs(varname-MeanEF)>6.*RMSEF):0.8");
+/// TStatToolkit::SetStatusAlias(tree, "tpcItsMatchA",  "", "varname_Out:(abs(varname-MeanEF)>6.*RMSEF):0.8");
+/// TStatToolkit::SetStatusAlias(tree, "meanTPCncl",    "", "varname_Warning:(abs(varname-MeanEF)>3.*RMSEF):0.8");
+/// TStatToolkit::SetStatusAlias(tree, "tpcItsMatchA",  "", "varname_Warning:(abs(varname-MeanEF)>3.*RMSEF):0.8");
+/// TObjArray* oaMultGr = new TObjArray(); int igr=0;
+/// oaMultGr->Add( TStatToolkit::MakeStatusMultGr(tree, "tpcItsMatchA:run",  "", "(1):(meanTPCncl>0):(varname_Warning):(varname_Outlier):", igr) ); igr++;
+/// oaMultGr->Add( TStatToolkit::MakeStatusMultGr(tree, "meanTPCncl:run",    "", "(1):(meanTPCncl>0):(varname_Warning):(varname_Outlier):", igr) ); igr++;
+/// TCanvas *c1 = new TCanvas("c1","c1");
+/// TStatToolkit::AddStatusPad(c1, 0.30, 0.40);
+/// TStatToolkit::DrawStatusGraphs(oaMultGr);
+/// \endcode  
 
 TMultiGraph*  TStatToolkit::MakeStatusMultGr(TTree * tree, const char * expr, const char * cut, const char * alias, Int_t igr) 
 {
-  //
-  // Compute a trending multigraph that shows for which runs a variable has outliers.
-  // (by MI, Patrick Reichelt)
-  //
-  // format of expr :  varname:xaxis (e.g. meanTPCncl:run, but 'varname' can be any string that you need for seach-and-replace)
-  // format of cut  :  char like in TCut
-  // format of alias:  (1):(statisticOK):(varname_Warning):(varname_Out)[:(varname_PhysAcc):(varname_Extra)]
-  //
-  // function MakeGraphSparse() is called for each alias argument, which will be used as tree expression.
-  // each alias argument is supposed to be a Boolean statement which can be evaluated as tree expression.
-  // the order of these criteria should be kept, as the marker styles and colors are chosen to be meaningful this way!
-  // 'statisticOK' could e.g. be an alias for '(meanTPCncl>0)'.
-  // if you dont need e.g. a 'warning' condition, then just replace it by (0).
-  // in the alias, 'varname' will be replaced by its content (e.g. varname_Out -> meanTPCncl_Out)
-  // note: the aliases 'varname_Out' etc have to be defined by function TStatToolkit::SetStatusAlias(...)
-  // counter igr is used to shift the multigraph in y when filling a TObjArray.
-  //
-  //
-  // To create the Status Bar, the following is done in principle.
-  //    ( example current usage in $ALICE_ROOT/PWGPP/TPC/macros/drawPerformanceTPCQAMatchTrends.C and ./qaConfig.C. )
-  //
-  //  TStatToolkit::SetStatusAlias(tree, "meanTPCncl",    "", "varname_Out:(abs(varname-MeanEF)>6.*RMSEF):0.8");
-  //  TStatToolkit::SetStatusAlias(tree, "tpcItsMatchA",  "", "varname_Out:(abs(varname-MeanEF)>6.*RMSEF):0.8");
-  //  TStatToolkit::SetStatusAlias(tree, "meanTPCncl",    "", "varname_Warning:(abs(varname-MeanEF)>3.*RMSEF):0.8");
-  //  TStatToolkit::SetStatusAlias(tree, "tpcItsMatchA",  "", "varname_Warning:(abs(varname-MeanEF)>3.*RMSEF):0.8");
-  //  TObjArray* oaMultGr = new TObjArray(); int igr=0;
-  //  oaMultGr->Add( TStatToolkit::MakeStatusMultGr(tree, "tpcItsMatchA:run",  "", "(1):(meanTPCncl>0):(varname_Warning):(varname_Outlier):", igr) ); igr++;
-  //  oaMultGr->Add( TStatToolkit::MakeStatusMultGr(tree, "meanTPCncl:run",    "", "(1):(meanTPCncl>0):(varname_Warning):(varname_Outlier):", igr) ); igr++;
-  //  TCanvas *c1 = new TCanvas("c1","c1");
-  //  TStatToolkit::AddStatusPad(c1, 0.30, 0.40);
-  //  TStatToolkit::DrawStatusGraphs(oaMultGr);
-  
-  
+
   TObjArray* oaVar = TString(expr).Tokenize(":");
   if (oaVar->GetEntries()<2) {
     printf("Expression has to be of type 'varname:xaxis':\t%s\n", expr);
@@ -1753,6 +1797,10 @@ TMultiGraph*  TStatToolkit::MakeStatusMultGr(TTree * tree, const char * expr, co
     snprintf(query,200, "%f*(%s-0.5):%s", 1.+igr, oaAlias->At(i)->GetName(), var_x);
     TGraphErrors * gr = (TGraphErrors*) TStatToolkit::MakeGraphSparse(tree,query,cut,marArr[i],colArr[i],sizeArr[i],shiftArr[i]);
     if (gr) multGr->Add(gr);
+    else{
+        ::Error("MakeGraphSparse"," returned with error -> returning");
+        return 0;
+    }
   }
   //
   multGr->SetName(varname);

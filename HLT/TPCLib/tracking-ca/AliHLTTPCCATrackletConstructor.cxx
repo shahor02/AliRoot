@@ -267,6 +267,7 @@ MEM_CLASS_PRE2() GPUdi() void AliHLTTPCCATrackletConstructor::UpdateTracklet
       float x = row.X();
       float err2Y, err2Z;
       if ( !tParam.TransportToX( x, tParam.SinPhi(), tParam.GetCosPhi(), tracker.Param().ConstBz(), .99 ) ) {
+        r.fGo = 0;
         SETRowHit(iRow, -1);
         break;
       }
@@ -383,8 +384,13 @@ GPUdi() void AliHLTTPCCATrackletConstructor::DoTracklet(GPUconstant() MEM_CONSTA
 		else
 		{
 			r.fNMissed = 0;
-			r.fGo = 1;
-			if (!(tParam.TransportToX( tracker.Row( r.fEndRow ).X(), tracker.Param().ConstBz(), .999) && tParam.Filter( r.fLastY, r.fLastZ, tParam.Err2Y() / 2, tParam.Err2Z() / 2., .99, true))) r.fGo = 0;
+			if ((r.fGo = (tParam.TransportToX( tracker.Row( r.fEndRow ).X(), tracker.Param().ConstBz(), .999) && tParam.Filter( r.fLastY, r.fLastZ, tParam.Err2Y() / 2, tParam.Err2Z() / 2., .99, true))))
+            {
+    			float err2Y, err2Z;
+    			tracker.GetErrors2( r.fEndRow, *( ( MEM_LG2(AliHLTTPCCATrackParam)* )&tParam ), err2Y, err2Z );
+    			if (tParam.GetCov(0) < err2Y) tParam.SetCov(0, err2Y);
+    			if (tParam.GetCov(2) < err2Z) tParam.SetCov(2, err2Z);
+            }
 			r.fNHits -= r.fNHitsEndRow;
 			r.fStage = 2;
 			iRow = r.fEndRow;
