@@ -34,13 +34,6 @@
 GPUd() void  AliHLTTPCGMPropagator::GetBxByBz( float Alpha, float X, float Y, float Z, float B[3] ) const
 {
 
-  if( fHomemadeEvents ){ // special treatment for toy monte carlo
-    B[0] = 0;
-    B[1] = 1;
-    B[2] = fField->GetNominalBz();
-    return;
-  }
-
   if( fContinuousTracking ) Z =  ( Z > 0 ? 125. : -125.);
 
   // get global coordinates
@@ -75,6 +68,14 @@ GPUd() void  AliHLTTPCGMPropagator::GetBxByBz( float Alpha, float X, float Y, fl
   B[0] =  bb[0]*cs + bb[1]*sn ;
   B[1] = -bb[0]*sn + bb[1]*cs ;
   B[2] =  bb[2] ;
+  //const double kCLight = 0.000299792458;
+ //std::cout<<"field "<<fField->GetNominalBz()/kCLight<<std::endl;
+  if( fHomemadeEvents ){ // special treatment for toy monte carlo
+    //B[0] = 0;
+    //B[1] = 0;
+    //B[2] = fField->GetNominalBz();
+    return;
+  }
 }
 
 GPUd()  float  AliHLTTPCGMPropagator::GetBz( float Alpha, float X, float Y, float Z ) const
@@ -356,14 +357,8 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlpha(float posX, float posAlpha, 
   
   AliHLTTPCGMPhysicalTrackModel t0e(fT0);
   float dLp = 0;
-  if( fHomemadeEvents ){ // special treatment for toy monte carlo  
-    int err = t0e.PropagateToXBzLight(  posX, B[2], dLp );
-    if( err ) return 1;
-    t0e.UpdateValues();
-  } else {
-    int err = t0e.PropagateToXBxByBz( posX, B[0], B[1], B[2], dLp );
-    if( err ) return 1;
-  }
+  int err = t0e.PropagateToXBxByBz( posX, B[0], B[1], B[2], dLp );
+  if( err ) return 1;
 
   if( fabs( t0e.SinPhi() ) >= fMaxSinPhi ) return -3;
 
@@ -514,7 +509,7 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlpha(float posX, float posAlpha, 
 
   // Energy Loss
 
-  if( !fHomemadeEvents ){   
+  if( 1||!fHomemadeEvents ){  
     //std::cout<<"APPLY ENERGY LOSS!!!"<<std::endl;
     float corr = float(1.f) - fMaterial.fEP2* dLmask ;
     float corrInv = 1.f/corr;
@@ -538,10 +533,11 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlpha(float posX, float posAlpha, 
 
   //  Multiple Scattering
   
-  if( !fHomemadeEvents ){ 
+  if( 1||!fHomemadeEvents ){ 
     fC22 += dLabs * fMaterial.fK22 * fT0.CosPhi()*fT0.CosPhi();
     fC33 += dLabs * fMaterial.fK33;
     fC43 += dLabs * fMaterial.fK43;
+    fC44 += dLabs * fMaterial.fK44;
   }
 
   return 0;
@@ -681,6 +677,7 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlphaBz(float posX, float posAlpha
   fC22 += dLabs * fMaterial.fK22 * fT0.CosPhi()*fT0.CosPhi();
   fC33 += dLabs * fMaterial.fK33;
   fC43 += dLabs * fMaterial.fK43;
+  fC44 += dLabs * fMaterial.fK44;
   
   return 0;
 }
@@ -688,14 +685,7 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlphaBz(float posX, float posAlpha
 
 GPUd() void AliHLTTPCGMPropagator::GetErr2(float& err2Y, float& err2Z, const AliHLTTPCCAParam &param, float posZ, int rowType)
 {
-  if( fHomemadeEvents ){
-    const float sigma = 0.1; 
-    err2Y = sigma*sigma;
-    err2Z = sigma*sigma;
-    return;
-  }
-  param.GetClusterErrors2v1( rowType,  fContinuousTracking ? 125.:posZ, fT0.GetSinPhi(),fT0.GetCosPhi(),fT0.DzDs(), err2Y, err2Z );  
-  //param.GetClusterErrors2New( rowType,  fContinuousTracking ? 125.:posZ, fT0.GetSinPhi(),fT0.GetCosPhi(),fT0.DzDs(), err2Y, err2Z );
+  param.GetClusterErrors2( rowType,  fContinuousTracking ? 125.:posZ, fT0.GetSinPhi(),fT0.GetCosPhi(),fT0.DzDs(), err2Y, err2Z );
 }
 
 
@@ -935,7 +925,7 @@ GPUd() void AliHLTTPCGMPropagator::CalculateMaterialCorrection()
   float  br = ( betheRho>1.e-8f ) ?betheRho :1.e-8f;
   fMaterial.fDLMax = 0.3* E / br ;
   fMaterial.fEP2*= betheRho;
-  fMaterial.fSigmadE2 = fMaterial.fSigmadE2*betheRho + fMaterial.fK44;
+  fMaterial.fSigmadE2 = fMaterial.fSigmadE2*betheRho;// + fMaterial.fK44;
 }
 
 
@@ -994,7 +984,7 @@ GPUd() void AliHLTTPCGMPropagator::Mirror(bool inFlyDirection)
 
   // Energy Loss
   
-  if( !fHomemadeEvents ){
+  if( 1||!fHomemadeEvents ){
  
     // std::cout<<"MIRROR: APPLY ENERGY LOSS!!!"<<std::endl;
   
