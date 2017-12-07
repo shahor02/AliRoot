@@ -83,7 +83,6 @@ GPUd() void AliHLTTPCGMTrackParam::Fit(const AliHLTTPCGMPolynomialField* field, 
     }
     else
     {
-      
       fZOffset = fP[1] - dz; 
     }
     fP[1] -= fZOffset;
@@ -344,7 +343,7 @@ GPUd() void AliHLTTPCGMTrackParam::RefitTrack(AliHLTTPCGMMergedTrack &track, con
 	if( 1 ){//SG!!!
 	  track.SetNClustersFitted( nTrackHits );
 	  track.Param() = t;
-	  track.Param().Z() += track.Param().ZOffset();
+	  track.Param().Z();
 	  track.Alpha() = Alpha;
 	}
 
