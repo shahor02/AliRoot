@@ -261,7 +261,7 @@ MEM_CLASS_PRE() GPUdi() float MEM_LG(AliHLTTPCCAParam)::GetClusterError2( int yz
   //* recalculate the cluster error wih respect to the track slope
   //SG!!!
   //return 0.5*0.5;
-  return GetClusterError2v1( yz, type, z, angle2 );
+  return GetClusterError2New( yz, type, z, angle2 );
 }
 
 
