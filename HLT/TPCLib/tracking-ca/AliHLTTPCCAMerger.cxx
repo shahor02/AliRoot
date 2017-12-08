@@ -250,7 +250,7 @@ void AliHLTTPCCAMerger::UnpackSlices()
         if ( !t0.TransportToX( clu.X(), fSliceParam.GetBz( t0 ), .999 ) ) continue;
 
         float err2Y, err2Z;
-        fSliceParam.GetClusterErrors2v1( clu.RowType(), clu.Z(), t0.SinPhi(), t0.GetCosPhi(), t0.DzDs(), err2Y, err2Z );
+        fSliceParam.GetClusterErrors2( clu.RowType(), clu.Z(), t0.SinPhi(), t0.GetCosPhi(), t0.DzDs(), err2Y, err2Z );
 
         clu.SetErr2Y( err2Y );
         clu.SetErr2Z( err2Z );
@@ -373,7 +373,7 @@ bool AliHLTTPCCAMerger::FitTrack( AliHLTTPCCATrackParam &T, float &Alpha,
 
     float err2Y = h.Err2Y();
     float err2Z = h.Err2Z();
-    if ( doErrors ) fSliceParam.GetClusterErrors2v1( h.RowType(), h.Z(), l.SinPhi(), l.CosPhi(), l.DzDs(), err2Y, err2Z );
+    if ( doErrors ) fSliceParam.GetClusterErrors2( h.RowType(), h.Z(), l.SinPhi(), l.CosPhi(), l.DzDs(), err2Y, err2Z );
     if( !final ){
       err2Y*= fSliceParam.ClusterError2CorrectionY();
       err2Z*= fSliceParam.ClusterError2CorrectionZ();

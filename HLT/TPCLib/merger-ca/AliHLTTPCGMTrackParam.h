@@ -101,8 +101,7 @@ public:
    bool UseMeanPt = 0,
    float maxSinPhi = .999
    );
-  
-  GPUd() bool Rotate( float alpha, AliHLTTPCGMPhysicalTrackModel &t0, float maxSinPhi = .999 );
+   
 
   GPUd() static float Reciprocal( float x ){ return 1./x; }
   GPUd() static void Assign( float &x, bool mask, float v ){
