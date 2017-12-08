@@ -39,7 +39,6 @@ struct GenCluster
   unsigned int fId;
 };
 
-const double kPi = TMath::Pi();//3.141592653589793;
 const double kTwoPi = TMath::TwoPi();//2.*kPi;
 const double kSliceDAngle = kTwoPi/18.;
 const double kSliceAngleOffset = kSliceDAngle/2;
