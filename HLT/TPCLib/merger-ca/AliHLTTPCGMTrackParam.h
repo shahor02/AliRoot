@@ -99,7 +99,7 @@ public:
    AliHLTTPCGMMergedTrackHit* clusters, const AliHLTTPCCAParam &param,
    int &N, float &Alpha, 
    bool UseMeanPt = 0,
-   float maxSinPhi = .999
+   float maxSinPhi = HLTCA_MAX_SIN_PHI
    );
    
 

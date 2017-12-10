@@ -431,15 +431,18 @@ GPUd() int AliHLTTPCGMPropagator::PropagateToXAlpha(float posX, float posAlpha, 
   float d2 = p[2] - fT0.SinPhi();
   float d3 = p[3] - fT0.DzDs();
   float d4 = p[4] - fT0.QPt();
+  
+  float newSinPhi = t0e.SinPhi() + d2 + j24*d4;
+  if (fabs(newSinPhi) > HLTCA_MAX_SIN_PHI) return(-3);
 	  
   fT0 = t0e;
 
   fT->X() = t0e.X();
   p[0] = t0e.Y() + d0    + j02*d2         + j04*d4;
   p[1] = t0e.Z() + d1    + j12*d2 + j13*d3 + j14*d4;
-  p[2] = t0e.SinPhi() +  d2           + j24*d4;    
+  p[2] = newSinPhi;
   p[3] = t0e.DzDs() + d3;
-  p[4] = t0e.QPt() + d4;  
+  p[4] = t0e.QPt() + d4;
 
   float *c = fT->Cov();
   float c00 = c[ 0];

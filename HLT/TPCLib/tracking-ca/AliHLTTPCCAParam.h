@@ -130,7 +130,6 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     GPUd() float GetClusterError2( int yz, int type, float z, float angle2 ) const;
     GPUd() void GetClusterErrors2( int row, float z, float sinPhi, float cosPhi, float DzDs, float &Err2Y, float &Err2Z ) const;
 
-
 #if !defined(__OPENCL__) || defined(HLTCA_HOSTCODE)
     void WriteSettings( std::ostream &out ) const;
     void ReadSettings( std::istream &in );
@@ -144,7 +143,7 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
  
     GPUd() float GetBzkG() const { return fBzkG;}
     GPUd() float GetConstBz() const { return fConstBz;}
-  
+    
   protected:
     int fISlice; // slice number
     int fNRows; // number of rows
@@ -163,7 +162,7 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
 
     int   fMaxTrackMatchDRow;// maximal jump in TPC row for connecting track segments
 
-  float fNeighboursSearchArea; // area in cm for the search of neighbours
+    float fNeighboursSearchArea; // area in cm for the search of neighbours
 
     float fTrackConnectionFactor; // allowed distance in Chi^2/3.5 for neighbouring tracks
     float fTrackChiCut; // cut for track Sqrt(Chi2/NDF);
@@ -182,7 +181,7 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     float fTrackReferenceX; //Transport all tracks to this X after tracking (disabled if > 500)
 
     float fRowX[200];// X-coordinate of rows    
-    float fParamRMS0[2][3][4]; // cluster error parameterization coeficients 
+    float fParamRMS0[2][3][4]; // cluster error parameterization coeficients
 };
 
 
