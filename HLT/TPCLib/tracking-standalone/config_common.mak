@@ -45,6 +45,7 @@ HLTCA_MERGER_CXXFILES			= merger-ca/AliHLTTPCGMMerger.cxx \
                                           merger-ca/AliHLTTPCGMSliceTrack.cxx \
                                           merger-ca/AliHLTTPCGMPhysicalTrackModel.cxx \
                                           merger-ca/AliHLTTPCGMPolynomialField.cxx \
+                                          merger-ca/AliHLTTPCGMPolynomialFieldCreator.cxx \
                                           merger-ca/AliHLTTPCGMPropagator.cxx \
                                           merger-ca/AliHLTTPCGMTrackParam.cxx
 
@@ -53,3 +54,10 @@ HLTCA_STANDALONE_CXXFILES		= code/AliHLTTPCCATrack.cxx \
                                           code/AliHLTTPCCATracklet.cxx \
                                           code/AliHLTTPCCAStandaloneFramework.cxx \
                                           code/AliHLTTPCCAMCPoint.cxx
+
+CONFIG_CPP				= gnu++14
+
+ifneq (${CONFIG_O2DIR}, )
+DEFINES					+= HAVE_O2HEADERS
+INCLUDEPATHSSYSTEM			+= ${CONFIG_O2DIR}/Detectors/TPC/base/include ${CONFIG_O2DIR}/DataFormats/TPC/include
+endif

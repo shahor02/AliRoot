@@ -12,13 +12,14 @@
 #define ALIHLTTPCGMTRACKPARAM_H
 
 #include "AliHLTTPCCAMath.h"
+#include "AliHLTTPCGMMergedTrackHit.h"
 
 class AliHLTTPCGMBorderTrack;
 class AliExternalTrackParam;
 class AliHLTTPCCAParam;
-class AliHLTTPCGMMergedTrack;
 class AliHLTTPCGMPhysicalTrackModel;
 class AliHLTTPCGMPolynomialField;
+class AliHLTTPCGMMergedTrack;
 
 /**
  * @class AliHLTTPCGMTrackParam
@@ -37,6 +38,7 @@ public:
   GPUd() float& SinPhi() { return fP[2]; }
   GPUd() float& DzDs()   { return fP[3]; }
   GPUd() float& QPt()    { return fP[4]; }
+  GPUd() float& ZOffset() {return fZOffset;}
   
   GPUhd() float GetX()      const { return fX; }
   GPUhd() float GetY()      const { return fP[0]; }
@@ -44,6 +46,7 @@ public:
   GPUd() float GetSinPhi() const { return fP[2]; }
   GPUd() float GetDzDs()   const { return fP[3]; }
   GPUd() float GetQPt()    const { return fP[4]; }
+  GPUd() float GetZOffset() const {return fZOffset;}
 
   GPUd() float GetKappa( float Bz ) const { return -fP[4]*Bz; }
 
@@ -90,16 +93,15 @@ public:
 
   GPUd() bool CheckNumericalQuality() const ;
 
-  GPUd() void Fit
+  GPUd() bool Fit
   (
-   const AliHLTTPCGMPolynomialField &field,
-   float x[], float y[], float z[], int row[], float alpha[], const AliHLTTPCCAParam &param,
+   const AliHLTTPCGMPolynomialField* field,
+   AliHLTTPCGMMergedTrackHit* clusters, const AliHLTTPCCAParam &param,
    int &N, float &Alpha, 
    bool UseMeanPt = 0,
-   float maxSinPhi = .999
+   float maxSinPhi = HLTCA_MAX_SIN_PHI
    );
-  
-  GPUd() bool Rotate( float alpha, AliHLTTPCGMPhysicalTrackModel &t0, float maxSinPhi = .999 );
+   
 
   GPUd() static float Reciprocal( float x ){ return 1./x; }
   GPUd() static void Assign( float &x, bool mask, float v ){
@@ -110,7 +112,14 @@ public:
     if( mask ) x = v;
   }
   
-  GPUd() static void RefitTrack(AliHLTTPCGMMergedTrack &track, const AliHLTTPCGMPolynomialField &field, float* x, float* y, float* z, int* row, float* alpha, const AliHLTTPCCAParam& param);
+  GPUd() static void RefitTrack(AliHLTTPCGMMergedTrack &track, const AliHLTTPCGMPolynomialField* field, AliHLTTPCGMMergedTrackHit* clusters, const AliHLTTPCCAParam& param);
+  
+  struct AliHLTTPCCAOuterParam {
+      float fX, fAlpha;
+      float fP[5];
+      float fC[15];
+  };
+  GPUd() const AliHLTTPCCAOuterParam& OuterParam() const {return fOuterParam;}
 
 #if !defined(HLTCA_STANDALONE) & !defined(HLTCA_GPUCODE)
   bool GetExtParam( AliExternalTrackParam &T, double alpha ) const;
@@ -120,10 +129,12 @@ public:
   private:
   
     float fX;      // x position
+    float fZOffset;
     float fP[5];   // 'active' track parameters: Y, Z, SinPhi, DzDs, q/Pt
     float fC[15];  // the covariance matrix for Y,Z,SinPhi,..
     float fChi2;   // the chi^2 value
     int   fNDF;    // the Number of Degrees of Freedom
+    AliHLTTPCCAOuterParam fOuterParam;
 };
 
 GPUd() inline void AliHLTTPCGMTrackParam::ResetCovariance()
@@ -131,7 +142,7 @@ GPUd() inline void AliHLTTPCGMTrackParam::ResetCovariance()
   fC[ 0] = 100.;
   fC[ 1] = 0.;  fC[ 2] = 100.;
   fC[ 3] = 0.;  fC[ 4] = 0.;  fC[ 5] = 1.;
-  fC[ 6] = 0.;  fC[ 7] = 0.;  fC[ 8] = 0.; fC[ 9] = 1.;
+  fC[ 6] = 0.;  fC[ 7] = 0.;  fC[ 8] = 0.; fC[ 9] = 10.;
   fC[10] = 0.;  fC[11] = 0.;  fC[12] = 0.; fC[13] = 0.; fC[14] = 10.;
   fChi2 = 0;
   fNDF = -5;

@@ -43,7 +43,7 @@ GCCPROF							=
 MULTITHREAD						= /MT
 MULTITHREADLIBS					= /nodefaultlib:libc.lib
 
-NVCCFLAGSOPT					= --use_fast_math --maxrregcount $(CUDAREGS) -O4 -Xptxas -v -Xptxas -O4 -m$(ARCHBITS) $(NVCCARCHS)
+NVCCFLAGSOPT					= --use_fast_math --maxrregcount $(CUDAREGS) -O4 -Xptxas -v -Xptxas -O4 -Xcompiler -O4 -m$(ARCHBITS) $(NVCCARCHS)
 NVCCFLAGSDBG					= --maxrregcount $(CUDAREGS) -Xptxas -v -Xptxas -O0 -O0 -m$(ARCHBITS) $(NVCCARCHS)
 
 TARGETTYPE						= EXECUTABLE
@@ -70,7 +70,7 @@ CLANGFLAGSUSE					= $(CLANGFLAGSOPT)
 NVCCFLAGSUSE					= $(NVCCFLAGSOPT)
 endif
 ifeq ($(GCCCUDA), )
-GCCCUDA						= $(GCC)
+GCCCUDA						= $(GCC3264)
 endif
 
 MKDIR							= $(HIDEECHOB) mkdir -p `echo $@ | sed 's,/[a-zA-Z0-9._-]*$$,,'` `echo $@ | sed 's,/[a-zA-Z0-9._-]*$$,,'`
@@ -80,10 +80,15 @@ include							makefiles/$(ARCHFILE)
 GCCFLAGSARCH					+= $(GCCARCHA)
 ifeq ($(CONFIG_CPP11), 1)
 GCCFLAGSCOMMON						+= -std=c++11
+CLANGFLAGSCOMMON					+= -std=c++11
+endif
+ifneq ($(CONFIG_CPP), )
+GCCFLAGSCOMMON						+= -std=$(CONFIG_CPP)
+CLANGFLAGSCOMMON					+= -std=$(CONFIG_CPP)
 endif
 ifeq ($(CONFIG_OPENMP), 1)
 GCCFLAGSCOMMON						+= -fopenmp
-CLANGFLAGSCOMMON					+= -openmp
+CLANGFLAGSCOMMON					+= -fopenmp
 GCCLINK							+= -fopenmp
 endif
 
@@ -131,6 +136,9 @@ CCWITHLINK						= /link
 endif
 ifeq ($(CC_SELECTED), GCC)
 CPPFILES_GCC					+= $(CPPFILES:%.cpp=$(WORKPATH)/cpp/%.$(OBJ)) $(CXXFILES:%.cxx=$(WORKPATH)/cxx/%.$(OBJ)) $(CFILES:%.c=$(WORKPATH)/c/%.$(OBJ)) 
+endif
+ifeq ($(CC_SELECTED), clang)
+CPPFILES_CLANG					+= $(CPPFILES:%.cpp=$(WORKPATH)/cpp/%.$(OBJ)) $(CXXFILES:%.cxx=$(WORKPATH)/cxx/%.$(OBJ)) $(CFILES:%.c=$(WORKPATH)/c/%.$(OBJ)) 
 endif
 
 ifeq ($(CONFIG_LTO), 1)

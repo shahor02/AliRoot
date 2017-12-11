@@ -54,7 +54,7 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     GPUhd() float RowX( int iRow ) const { return fRowX[iRow]; }
 
     GPUd() float Alpha() const { return fAlpha;}
-    GPUd() float Alpha( int iSlice ) const { return 0.174533 + DAlpha()*iSlice;}
+    GPUd() float Alpha( int iSlice ) const { if (iSlice >= 18) iSlice -= 18; if (iSlice >= 9) iSlice -= 18; return 0.174533 + DAlpha() * iSlice;}
     GPUd() float DAlpha() const { return fDAlpha;}
     GPUd() float CosAlpha() const { return fCosAlpha;}
     GPUd() float SinAlpha() const { return fSinAlpha;}
@@ -69,6 +69,10 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     GPUd() float ErrY() const { return fErrY;}
     GPUd() float BzkG() const { return fBzkG;}
     GPUd() float ConstBz() const { return fConstBz;}
+    GPUd() bool AssumeConstantBz() const { return fAssumeConstantBz; }
+    GPUd() void SetAssumeConstantBz(bool v) { fAssumeConstantBz = v; }
+    GPUd() bool ToyMCEventsFlag() const { return fToyMCEventsFlag; }
+    GPUd() void SetToyMCEventsFlag(bool v) { fToyMCEventsFlag = v; }
 
     GPUd() float NeighboursSearchArea() const { return fNeighboursSearchArea; }
     GPUd() float TrackConnectionFactor() const { return fTrackConnectionFactor; }
@@ -82,8 +86,10 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     GPUd() float MaxTrackQPt() const { return fMaxTrackQPt; }
     GPUd() float HighQPtForward() const { return fHighQPtForward; }
     GPUd() int GetNWays() const { return fNWays; }
+    GPUd() int GetNWaysOuter() const { return fNWaysOuter; }
     GPUd() float GetSearchWindowDZDR() const { return fSearchWindowDZDR; }
     GPUd() bool GetContinuousTracking() const { return fContinuousTracking; }
+    GPUd() float GetTrackReferenceX() const { return fTrackReferenceX;}
 
     GPUhd() void SetISlice( int v ) {  fISlice = v;}
     GPUhd() void SetNRows( int v ) {  fNRows = v;}
@@ -113,35 +119,31 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     GPUd() void SetClusterError2CorrectionZ( float v ) { fClusterError2CorrectionZ = v; }
 
     GPUd() void SetMinNTrackClusters( int v ){ fMinNTrackClusters = v; }
-    GPUd() void SetMinTrackPt( float v ){ fMaxTrackQPt = CAMath::Abs(v)>0.015 ?1./CAMath::Abs(v) :1./0.015; }
+    GPUd() void SetMinTrackPt( float v ){ fMaxTrackQPt = CAMath::Abs(v)>0.001 ?1./CAMath::Abs(v) :1./0.001; }
     GPUd() void SetHighQPtForward( float v ){ fHighQPtForward = v; }
     GPUd() void SetNWays( int v ){ fNWays = v; }
+    GPUd() void SetNWaysOuter( bool v ){ fNWaysOuter = v; }
     GPUd() void SetSearchWindowDZDR( float v ){ fSearchWindowDZDR = v; }
     GPUd() void SetContinuousTracking( bool v ){ fContinuousTracking = v; }
+    GPUd() void SetTrackReferenceX( float v) { fTrackReferenceX = v; }
 
     GPUd() float GetClusterError2( int yz, int type, float z, float angle2 ) const;
     GPUd() void GetClusterErrors2( int row, float z, float sinPhi, float cosPhi, float DzDs, float &Err2Y, float &Err2Z ) const;
-    GPUd() void GetClusterErrors2v1( int rowType, float z, float sinPhi, float cosPhi, float DzDs, float &Err2Y, float &Err2Z ) const;
-
-    GPUd() float GetClusterError2New( int yz, int type, float z, float angle2 ) const;
-    GPUd() void GetClusterErrors2New( int rowType, float z, float sinPhi, float cosPhi, float DzDs, float &Err2Y, float &Err2Z ) const;
 
 #if !defined(__OPENCL__) || defined(HLTCA_HOSTCODE)
     void WriteSettings( std::ostream &out ) const;
     void ReadSettings( std::istream &in );
 #endif
 
-    GPUd() void SetParamS0Par( int i, int j, int k, float val ) {
-      fParamS0Par[i][j][k] = val;
+    GPUd() void SetParamRMS0( int i, int j, int k, float val ) {
+      fParamRMS0[i][j][k] = val;
     }
   
-    GPUd() const MakeType(float*) GetParamS0Par(int i, int j) const { return fParamS0Par[i][j]; }
+    GPUd() const MakeType(float*) GetParamRMS0(int i, int j) const { return fParamRMS0[i][j]; }
  
     GPUd() float GetBzkG() const { return fBzkG;}
     GPUd() float GetConstBz() const { return fConstBz;}
-    GPUd() float GetBz( float x, float y, float z ) const;
-	MEM_CLASS_PRE2() GPUd() float GetBz( const MEM_LG2(AliHLTTPCCATrackParam) &t ) const {return GetBz( t.X(), t.Y(), t.Z() );}
-
+    
   protected:
     int fISlice; // slice number
     int fNRows; // number of rows
@@ -160,7 +162,7 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
 
     int   fMaxTrackMatchDRow;// maximal jump in TPC row for connecting track segments
 
-  float fNeighboursSearchArea; // area in cm for the search of neighbours
+    float fNeighboursSearchArea; // area in cm for the search of neighbours
 
     float fTrackConnectionFactor; // allowed distance in Chi^2/3.5 for neighbouring tracks
     float fTrackChiCut; // cut for track Sqrt(Chi2/NDF);
@@ -171,24 +173,16 @@ MEM_CLASS_PRE() class AliHLTTPCCAParam
     float fMaxTrackQPt;    //* required max Q/Pt (==min Pt) of tracks
     float fHighQPtForward; //Try to forward low Pt tracks with Q/Pt larger than this
     int fNWays;          //Do N fit passes in final fit of merger
-    float fSearchWindowDZDR; //Use DZDR window for seeding instead of vertex window
+    bool fNWaysOuter;    //Store outer param
+    bool fAssumeConstantBz; //Assume a constant magnetic field
+    bool fToyMCEventsFlag; //events were build with home-made event generator
     bool fContinuousTracking; //Continuous tracking, estimate bz and errors for abs(z) = 125cm during seeding
+    float fSearchWindowDZDR; //Use DZDR window for seeding instead of vertex window
+    float fTrackReferenceX; //Transport all tracks to this X after tracking (disabled if > 500)
 
-    float fRowX[200];// X-coordinate of rows
-    float fParamS0Par[2][3][7];    // cluster error parameterization coeficients (OLD)
-    float fParamRMS0[2][3][4]; // cluster error parameterization coeficients (NEW)
-    float fPolinomialFieldBz[6];   // field coefficients
-
+    float fRowX[200];// X-coordinate of rows    
+    float fParamRMS0[2][3][4]; // cluster error parameterization coeficients
 };
 
-
-
-MEM_CLASS_PRE() GPUd() inline float MEM_LG(AliHLTTPCCAParam)::GetBz( float x, float y, float z ) const
-{
-  float r2 = x * x + y * y;
-  float r  = CAMath::Sqrt( r2 );
-  const float *c = fPolinomialFieldBz;
-  return ( c[0] + c[1]*z  + c[2]*r  + c[3]*z*z + c[4]*z*r + c[5]*r2 );
-}
 
 #endif //ALIHLTTPCCAPARAM_H

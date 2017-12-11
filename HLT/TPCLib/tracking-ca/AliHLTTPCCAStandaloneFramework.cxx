@@ -111,15 +111,22 @@ void AliHLTTPCCAStandaloneFramework::FinishDataReading()
 }
 
 
-int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice)
+int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice, bool resetTimers)
 {
   // perform the event reconstruction
 
   fStatNEvents++;
 
 #ifdef HLTCA_STANDALONE
-  static HighResTimer timerTracking, timerMerger;
+  static HighResTimer timerTracking, timerMerger, timerQA;
   static int nCount = 0;
+  if (resetTimers)
+  {
+      timerTracking.Reset();
+      timerMerger.Reset();
+      timerQA.Reset();
+      nCount = 0;
+  }
   timerTracking.Start();
 
   if (fEventDisplay)
@@ -169,7 +176,9 @@ int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice)
 #ifdef BUILD_QA
   if (fRunQA)
   {
+    timerQA.Start();
     RunQA();
+    timerQA.Stop();
   }
 #endif
 #ifdef BUILD_EVENT_DISPLAY
@@ -246,6 +255,7 @@ int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice)
 #ifndef HLTCA_BUILD_O2_LIB
   printf("Tracking Time: %1.0f us\n", 1000000 * timerTracking.GetElapsedTime() / nCount);
   if (fRunMerger) printf("Merging and Refit Time: %1.0f us\n", 1000000 * timerMerger.GetElapsedTime() / nCount);
+  if (fRunQA) printf("QA Time: %1.0f us\n", 1000000 * timerQA.GetElapsedTime() / nCount);
 #endif
 
   if (fDebugLevel >= 1)
@@ -277,6 +287,7 @@ int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice)
         {
             timerTracking.Reset();
             timerMerger.Reset();
+            timerQA.Reset();
             nCount = 0;
         }
   }
@@ -288,7 +299,7 @@ int AliHLTTPCCAStandaloneFramework::ProcessEvent(int forceSingleSlice)
 }
 
 
-void AliHLTTPCCAStandaloneFramework::SetSettings(float solenoidBz)
+void AliHLTTPCCAStandaloneFramework::SetSettings(float solenoidBz, bool toyMCEvents, bool constBz)
 {
     for (int slice = 0;slice < fgkNSlices;slice++)
     {
@@ -300,7 +311,7 @@ void AliHLTTPCCAStandaloneFramework::SetSettings(float solenoidBz)
       float minusZmin = -249.645;
       float minusZmax = -0.0799937;
       float dalpha = 0.349066;
-      float alpha = 0.174533 + dalpha * iSec;
+      float alpha = 0.174533 + dalpha * (iSec < 18 ? iSec : iSec - 18);
 
       bool zPlus = ( iSec < 18 );
       float zMin =  zPlus ? plusZmin : minusZmin;
@@ -321,7 +332,7 @@ void AliHLTTPCCAStandaloneFramework::SetSettings(float solenoidBz)
         inRmin, outRmax, zMin, zMax, padPitch, sigmaZ, solenoidBz );
       param.SetHitPickUpFactor( 2 );
       param.SetMinNTrackClusters( -1 );
-      param.SetMinTrackPt( 0.015 );
+      param.SetMinTrackPt( MIN_TRACK_PT_DEFAULT );
 
       param.Update();
       fTracker.InitializeSliceParam( slice, param );
@@ -350,7 +361,8 @@ void AliHLTTPCCAStandaloneFramework::SetSettings(float solenoidBz)
 
 	  param.Initialize( iSec, nRows, rowX, alpha, dalpha,
 						inRmin, outRmax, zMin, zMax, padPitch, sigmaZ, solenoidBz );
-
+	  param.SetAssumeConstantBz(constBz);
+	  param.SetToyMCEventsFlag( toyMCEvents );
 	  param.SetClusterError2CorrectionZ( 1.1 );
 	  param.Update();
 
@@ -369,7 +381,7 @@ void AliHLTTPCCAStandaloneFramework::WriteEvent( std::ostream &out ) const
   }
 }
 
-int AliHLTTPCCAStandaloneFramework::ReadEvent( std::istream &in, bool resetIds, bool addData, float shift, float minZ, float maxZ, bool silent )
+int AliHLTTPCCAStandaloneFramework::ReadEvent( std::istream &in, bool resetIds, bool addData, float shift, float minZ, float maxZ, bool silent, bool doQA )
 {
   //* Read event from file
   int nClusters = 0, nCurrentClusters = 0;
@@ -402,9 +414,12 @@ int AliHLTTPCCAStandaloneFramework::ReadEvent( std::istream &in, bool resetIds, 
   }
   if (nClusters)
   {
-    fMCLabels.resize(nCurrentClusters + nClusters);
-    in.read((char*) (fMCLabels.data() + nCurrentClusters), nClusters * sizeof(fMCLabels[0]));
-    if (!in || in.gcount() != nClusters * (int) sizeof(fMCLabels[0]))
+    if (doQA)
+    {
+      fMCLabels.resize(nCurrentClusters + nClusters);
+      in.read((char*) (fMCLabels.data() + nCurrentClusters), nClusters * sizeof(fMCLabels[0]));
+    }
+    if (!doQA || !in || in.gcount() != nClusters * (int) sizeof(fMCLabels[0]))
     {
       fMCLabels.clear();
       fMCInfo.clear();

@@ -98,6 +98,7 @@ set(SRCS
     AliHLTTPCTrackGeometry.cxx    
     AliHLTTPCTrackMCMarkerComponent.cxx
     AliHLTTPCGeometry.cxx
+    AliHLTTPCPolynomFit.cxx
     comp/AliHLTTPCClusterStatComponent.cxx
     comp/AliHLTTPCDataCompressionComponent.cxx
     comp/AliHLTTPCDataCompressionDecoder.cxx
@@ -122,22 +123,20 @@ set(SRCS
     merger-ca/AliHLTTPCGMPhysicalTrackModel.cxx
     merger-ca/AliHLTTPCGMPropagator.cxx
     merger-ca/AliHLTTPCGMPolynomialField.cxx
+    merger-ca/AliHLTTPCGMPolynomialFieldCreator.cxx
     offline/AliHLTTPCDigitPublisherComponent.cxx
     offline/AliHLTTPCOfflineCluster.cxx
     tracking-ca/AliHLTTPCCABaseTrackParam.cxx
     tracking-ca/AliHLTTPCCAClusterData.cxx
-    tracking-ca/AliHLTTPCCADisplay.cxx
     tracking-ca/AliHLTTPCCAGlobalMergerComponent.cxx
     tracking-ca/AliHLTTPCCAGPUTracker.cxx
     tracking-ca/AliHLTTPCCAGrid.cxx
     tracking-ca/AliHLTTPCCAHitArea.cxx
     tracking-ca/AliHLTTPCCAMCPoint.cxx
     tracking-ca/AliHLTTPCCAMCTrack.cxx
-    tracking-ca/AliHLTTPCCAMerger.cxx
     tracking-ca/AliHLTTPCCANeighboursCleaner.cxx
     tracking-ca/AliHLTTPCCANeighboursFinder.cxx
     tracking-ca/AliHLTTPCCAParam.cxx
-    tracking-ca/AliHLTTPCCAPerformance.cxx
     tracking-ca/AliHLTTPCCARow.cxx
     tracking-ca/AliHLTTPCCASliceData.cxx
     tracking-ca/AliHLTTPCCASliceOutput.cxx
@@ -147,7 +146,6 @@ set(SRCS
     tracking-ca/AliHLTTPCCATrackerComponent.cxx
     tracking-ca/AliHLTTPCCATrackerFramework.cxx
     tracking-ca/AliHLTTPCCATracker.cxx
-    tracking-ca/AliHLTTPCCATrackerOutputConverter.cxx
     tracking-ca/AliHLTTPCCATrack.cxx
     tracking-ca/AliHLTTPCCATrackletConstructor.cxx
     tracking-ca/AliHLTTPCCATracklet.cxx

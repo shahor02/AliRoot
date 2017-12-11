@@ -39,10 +39,13 @@ public:
 
   GPUd() void SetMaterial( float radLen, float rho );
 
-  GPUd() void SetPolynomialField( const AliHLTTPCGMPolynomialField &field ){ fField = field; }
+  GPUd() void SetPolynomialField( const AliHLTTPCGMPolynomialField* field ){ fField = field; }
 
   GPUd() void SetUseMeanMomentum( bool Flag ){ fUseMeanMomentum = Flag; CalculateMaterialCorrection(); }
   GPUd() void SetContinuousTracking( bool Flag ){ fContinuousTracking = Flag; }
+  GPUd() void SetFitInProjections( bool Flag ){ fFitInProjections = Flag; }
+  GPUd() void SetToyMCEventsFlag( bool Flag ){ fToyMCEvents = Flag; }
+
   GPUd() void SetMaxSinPhi( float maxSinPhi ){ fMaxSinPhi = maxSinPhi; }
   
   GPUd() void SetTrack( AliHLTTPCGMTrackParam *track, float Alpha ); 
@@ -52,7 +55,7 @@ public:
   
   GPUd() int PropagateToXAlpha( float posX, float posAlpha, bool inFlyDirection );
 
-  GPUd() int PropagateToXAlphaBz( float posX, float posAlpha, bool inFlyDirection );
+  //  GPUd() int PropagateToXAlphaBz( float posX, float posAlpha, bool inFlyDirection );
 
   GPUd() int Update( float posY, float posZ, int rowType, const AliHLTTPCCAParam &param, bool rejectChi2 );  
 
@@ -76,20 +79,21 @@ private:
 
   GPUd() static float ApproximateBetheBloch( float beta2 );
 
-  AliHLTTPCGMPolynomialField fField;
-
+  const AliHLTTPCGMPolynomialField* fField;
   AliHLTTPCGMTrackParam *fT;
   float fAlpha; // rotation angle of the track coordinate system
   AliHLTTPCGMPhysicalTrackModel fT0;
   MaterialCorrection fMaterial;
   bool fUseMeanMomentum;//
   bool fContinuousTracking; // take field at the mean TPC Z
+  bool fFitInProjections; // fit (Y,SinPhi,QPt) and (Z,DzDs) paramteres separatelly
+  bool fToyMCEvents; // events are simulated with simple home-made simulation
   float fMaxSinPhi;
 };
 
 GPUd() inline AliHLTTPCGMPropagator::AliHLTTPCGMPropagator()
-: fField(), fT(0), fAlpha(0), fT0(), fMaterial(),
-     fUseMeanMomentum(0), fContinuousTracking(0), fMaxSinPhi(.999)
+: fField(0), fT(0), fAlpha(0), fT0(), fMaterial(),
+  fUseMeanMomentum(0), fContinuousTracking(0), fFitInProjections(0), fToyMCEvents(0), fMaxSinPhi(HLTCA_MAX_SIN_PHI)
 {
 }
 

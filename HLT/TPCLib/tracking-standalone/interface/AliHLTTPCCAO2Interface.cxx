@@ -18,6 +18,7 @@
 
 #include "AliHLTTPCCAO2Interface.h"
 #include "AliHLTTPCCAStandaloneFramework.h"
+#include "standaloneSettings.h"
 #include <iostream>
 #include <fstream>
 
@@ -36,6 +37,7 @@ int AliHLTTPCCAO2Interface::Initialize(const char* options)
 	fHLT = &AliHLTTPCCAStandaloneFramework::Instance(-1);
 	if (fHLT == NULL) return(1);
 	float solenoidBz = -5.00668;
+	float refX = 1000.;
 
 	if (options && *options)
 	{
@@ -61,6 +63,11 @@ int AliHLTTPCCAO2Interface::Initialize(const char* options)
 				sscanf(optPtr + 3, "%f", &solenoidBz);
 				printf("Using solenoid field %f\n", solenoidBz);
 			}
+			else if (optLen > 5 && strncmp(optPtr, "refX=", 5) == 0)
+			{
+				sscanf(optPtr + 5, "%f", &refX);
+				printf("Propagating to reference X %f\n", refX);
+			}
 			else
 			{
 				printf("Unknown option: %s\n", optPtr);
@@ -69,20 +76,13 @@ int AliHLTTPCCAO2Interface::Initialize(const char* options)
 		}
 	}
 
-	/*hlt.ExitGPU(); //Possible additional options, not used now
-	hlt.SetGPUDebugLevel(DebugLevel, &CPUOut, &GPUOut);
-	hlt.SetEventDisplay(eventDisplay);
-	hlt.SetRunMerger(merger);
-	hlt.InitGPU(sliceCount, cudaDevice)
-	hlt.SetGPUTracker(RUNGPU);
-	hlt.SetHighQPtForward(1./0.1);
-	hlt.SetNWays(nways);*/
-
-	fHLT->SetSettings(solenoidBz);
+	fHLT->SetNWays(3);
+	fHLT->SetSettings(solenoidBz, false, false);
 	fHLT->SetGPUTrackerOption("HelperThreads", 0);
 	fHLT->SetGPUTrackerOption("GlobalTracking", 1);
 	fHLT->SetSearchWindowDZDR(2.5f);
 	fHLT->SetContinuousTracking(fContinuous);
+	fHLT->SetTrackReferenceX(refX);
 	fHLT->UpdateGPUSliceParam();
 
 	fInitialized = true;
@@ -101,7 +101,7 @@ void AliHLTTPCCAO2Interface::Deinitialize()
 	fInitialized = false;
 }
 
-int AliHLTTPCCAO2Interface::RunTracking(const AliHLTTPCCAClusterData* inputClusters, const AliHLTTPCGMMergedTrack* &outputTracks, int &nOutputTracks, const unsigned int* &outputTrackClusterIDs)
+int AliHLTTPCCAO2Interface::RunTracking(const AliHLTTPCCAClusterData* inputClusters, const AliHLTTPCGMMergedTrack* &outputTracks, int &nOutputTracks, const AliHLTTPCGMMergedTrackHit* &outputTrackClusters)
 {
 	if (!fInitialized) return(1);
 	static int nEvent = 0;
@@ -114,12 +114,35 @@ int AliHLTTPCCAO2Interface::RunTracking(const AliHLTTPCCAClusterData* inputClust
 		out.open(fname, std::ofstream::binary);
 		fHLT->WriteEvent(out);
 		out.close();
+		if (nEvent == 0)
+		{
+			out.open("settings.dump", std::ofstream::binary);
+			hltca_event_dump_settings settings;
+			settings.setDefaults();
+			settings.solenoidBz = fHLT->Param().BzkG();
+			out.write((char*) &settings, sizeof(settings));
+			out.close();
+		}
 	}
 	fHLT->ProcessEvent();
 	outputTracks = fHLT->Merger().OutputTracks();
 	nOutputTracks = fHLT->Merger().NOutputTracks();
-	outputTrackClusterIDs = fHLT->Merger().OutputClusterIds();
+	outputTrackClusters = fHLT->Merger().Clusters();
 	nEvent++;
+	return(0);
+}
+
+int AliHLTTPCCAO2Interface::RunTracking(const AliHLTTPCCAClusterData* inputClusters, const AliHLTTPCGMMergedTrack* &outputTracks, int &nOutputTracks, const unsigned int* &outputTrackClusterIDs)
+{
+	const AliHLTTPCGMMergedTrackHit* outputTrackClusters;
+	int retVal = RunTracking(inputClusters, outputTracks, nOutputTracks, outputTrackClusters);
+	if (retVal) return(retVal);
+	fOutputTrackClusterBuffer.resize(fHLT->Merger().NOutputTrackClusters());
+	for (int i = 0;i < fHLT->Merger().NOutputTrackClusters();i++)
+	{
+		fOutputTrackClusterBuffer[i] = outputTrackClusters[i].fId;
+	}
+	outputTrackClusterIDs = fOutputTrackClusterBuffer.data();
 	return(0);
 }
 

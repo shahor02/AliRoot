@@ -299,6 +299,44 @@ Bool_t AliExternalInfo::Cache(TString type, TString period, TString pass){
   }
 }
 
+/// Cache selected production trees.  Input production list obtained from MonALISA web interface
+/// \param select      - selection mask
+/// \param reject      - rejection mask
+/// \param sourceList  - list of detectors to cache
+/*!
+   Example usage:
+   \code
+        AliExternalInfo::CacheProduction(TPRegexp("LHC17.*"),TPRegexp("cpass0"),"QA.TPC;QA.EVS;QA.TRD;QA.rawTPC;QA.ITS;Logbook;QA.TOF;Logbook.detector");
+   \endcode
+*/
+void AliExternalInfo::CacheProduction(TPRegexp select, TPRegexp reject, TString sourceList){
+  AliExternalInfo info;
+  TTree* treeProd = info.GetTreeProdCycle();
+  Int_t entries=treeProd->GetEntries();
+  TObjArray * detectorArray=sourceList.Tokenize(";");
+  for (Int_t i=0; i<entries; i++){
+    treeProd->GetEntry(i);
+    char * productionTag= (char*)treeProd->GetLeaf("Tag")->GetValuePointer();
+    if (select.Match(productionTag)==0) continue;
+    if (reject.Match(productionTag)==1) continue;
+    printf("Caching\t%s\n",productionTag);
+    TString production(productionTag);
+    Int_t pos=production.First('_');
+    if (pos<0) continue;
+    if (pos>production.Length()-4) continue;
+    printf("Caching\t%s\n",productionTag);
+    TString period( production(0,pos));
+    TString pass(production(pos+1, production.Length()-pos-1));
+    printf("Caching\t%s\t%s\t%s\n",productionTag,period.Data(),pass.Data());
+    for (Int_t iDet=0;iDet<detectorArray->GetEntries(); iDet++) {
+      info.Cache(detectorArray->At(iDet)->GetName(), period.Data(), pass.Data());
+    }
+  }
+}
+
+
+
+
 /// \param type Type of the resource as described in the config file, e.g. QA.TPC, MonALISA.RCT
 /// \param period Period, e.g. 'LHC15f'
 /// \param pass E.g. 'pass2' or 'passMC'
@@ -462,7 +500,7 @@ TTree*  AliExternalInfo::GetTree(TString type, TString period, TString pass, TSt
 /// \param pass E.g. 'pass2' or 'passMC'. Here you can use wildcards like in 'ls', e.g. 'pass*'
 /// Returns a chain with the information from the corresponding resources.
 /// \return TChain*
-TChain* AliExternalInfo::GetChain(TString type, TString period, TString pass){
+TChain* AliExternalInfo::GetChain(TString type, TString period, TString pass, Int_t buildIndex){
   // FIXME  - here we should also fix Leave name bug
   TChain* chain = 0x0;
   TString internalFilename = ""; // Resulting path to the file
@@ -515,10 +553,68 @@ TChain* AliExternalInfo::GetChain(TString type, TString period, TString pass){
   if (cache>0) chain->SetCacheSize(cache);
 
   AddChain(type, period, pass);
+  BuildIndex(chain,type);
+  TString metadataMacro=fConfigMap[type + ".metadataMacro"];
+  chain->Draw("Entry$","1","goff",1);
+  if (metadataMacro.Length()>0 && chain->GetTree()) {  // rename branch  with index if specified in configuration file
+    if (fVerbose>1) printf("Processing metadata macro:\n gROOT->ProcessLine(.x %s((TTree*)%p,%d);",     metadataMacro.Data(),chain->GetTree(), fVerbose);
+    gROOT->ProcessLine(TString::Format(".x %s((TTree*)%p,%d);",metadataMacro.Data(),chain->GetTree(),fVerbose).Data());
+  }
+
   delete arrFiles;
   delete arrTreeName;
   return chain;
 };
+
+/// \param type Type of the resource as described in the config file, e.g. QA.TPC, MonALISA.RCT
+/// \param period Period, e.g. 'LHC15f'. Here you can use wildcards like in 'ls', e.g. 'LHC15*'
+/// \param pass E.g. 'pass2' or 'passMC'. Here you can use wildcards like in 'ls', e.g. 'pass*'
+/// Returns a chain with the information from the corresponding resources.
+/// \return TChain*
+TChain* AliExternalInfo::GetChain(TString type, TString period, TString pass, TString friendList){
+  TChain *chain = GetChain(type.Data(),period.Data(),pass.Data(),kFALSE);
+  if (chain==0){
+    ::Error("AliExternalInfo::GetChain", "Invalid tree description %s\t%s\t%s",type.Data(), period.Data(),pass.Data());
+  }
+  TObjArray * arrFriendList= friendList.Tokenize(";");
+  for (Int_t ilist=0; ilist<arrFriendList->GetEntriesFast(); ilist++) {
+
+    TString fname=arrFriendList->At(ilist)->GetName();
+    TString conditionName="";
+    TString condition="";
+    Int_t nDots = fname.CountChar(':');
+    TChain *chainF =NULL;
+
+    // in case there are more than one entry for primary index - secondary key has to be specified
+    // following syntax is used in this case <treeID>:conditionName:condition
+    //     e.g Logbook.detector:TPC:detector==\"TPC\"
+    if (nDots!=0 && nDots!=2) continue;
+    if (nDots==2){
+      TObjArray * tokenArray = fname.Tokenize(":");
+      fname=tokenArray->At(0)->GetName();
+      conditionName=tokenArray->At(1)->GetName();
+      condition=tokenArray->At(2)->GetName();
+      delete tokenArray;
+    }
+
+    chainF=GetChain(fname.Data(), period.Data(), pass.Data(),kTRUE);
+
+    if (chainF){
+      if (nDots!=2) {
+        chain->AddFriend(chainF, arrFriendList->At(ilist)->GetName());
+      }else{
+        chain->SetAlias(conditionName.Data(),"(1+0)");
+        chainF->SetAlias(conditionName.Data(),condition.Data());
+        chainF->BuildIndex(chainF->GetTreeIndex()->GetMajorName(), conditionName.Data());
+        chain->AddFriend(chainF, (fname+"_"+conditionName).Data());
+      }
+    }else{
+      ::Error("AliExternalInfo::GetChain", "Invalid friend tree\t%s\t%s",arrFriendList->At(ilist)->GetName(), friendList.Data());
+      continue;
+    }
+  }
+  return chain;
+}
 
 /// Every tree you create is added to a big tree acting as a friend.
 /// You can have access to this tree with the GetFriendsTree() function.
@@ -536,11 +632,11 @@ Bool_t AliExternalInfo::BuildIndex(TTree* tree, TString type){
   //
   if (oldIndexName.Length()>0){  // rename branch  with index if specified in configuration file
     if (tree->GetBranch(oldIndexName.Data())) {
-      tree->GetBranch(oldIndexName.Data())->SetName(indexName.Data());
     }
   }
   if (indexName.Length()<=0) { // set default index name
-    if (tree->GetListOfBranches()->FindObject("run"))  indexName="run";    
+     indexName="run";
+    if (tree->GetListOfBranches()!=NULL) if (tree->GetListOfBranches()->FindObject("run"))  indexName="run";
   }
   if (indexName.Length()<=0) {
     ::Error("AliExternalInfo::BuildIndex","Index %s not avaible for type %s", indexName.Data(), type.Data());

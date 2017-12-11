@@ -44,6 +44,7 @@ class AliHLTTPCCAStandaloneFramework
     static AliHLTTPCCAStandaloneFramework &Instance(int allowGPU = 1, const char* GPULibrary = NULL);
 
 	const AliHLTTPCCAParam &Param ( int iSlice ) const { return(fTracker.Param(iSlice)); }
+	const AliHLTTPCCAParam &Param () const { return(fMerger.SliceParam()); }
 	const AliHLTTPCCARow &Row ( int iSlice, int iRow ) const { return(fTracker.Row(iSlice, iRow)); }
     const AliHLTTPCCASliceOutput &Output( int iSlice ) const { return *fSliceOutput[iSlice]; }
     AliHLTTPCGMMerger  &Merger()  { return fMerger; }
@@ -69,7 +70,7 @@ class AliHLTTPCCAStandaloneFramework
     /**
      *  perform event reconstruction
      */
-    int ProcessEvent(int forceSingleSlice = -1);
+    int ProcessEvent(int forceSingleSlice = -1, bool resetTimers = true);
 
 
     int NSlices() const { return fgkNSlices; }
@@ -78,9 +79,9 @@ class AliHLTTPCCAStandaloneFramework
     double StatTime( int iTimer ) const { return fStatTime[iTimer]; }
     int StatNEvents() const { return fStatNEvents; }
 
-    void SetSettings(float solenoidBz = -5.00668);
+    void SetSettings(float solenoidBz, bool toyMCEvents, bool constBz);
     void WriteEvent( std::ostream &out ) const;
-    int ReadEvent( std::istream &in, bool ResetIds = false, bool addData = false, float shift = 0., float minZ = -1e6, float maxZ = -1e6, bool silent = false );
+    int ReadEvent( std::istream &in, bool ResetIds = false, bool addData = false, float shift = 0., float minZ = -1e6, float maxZ = -1e6, bool silent = false, bool doQA = true );
 
 	int InitGPU(int sliceCount = 1, int forceDeviceID = -1) { return(fTracker.InitGPU(sliceCount, forceDeviceID)); }
 	int ExitGPU() { return(fTracker.ExitGPU()); }
@@ -91,8 +92,10 @@ class AliHLTTPCCAStandaloneFramework
 	int GetGPUMaxSliceCount() const { return(fTracker.MaxSliceCount()); }
 	void SetHighQPtForward(float v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetHighQPtForward(v); fMerger.SetSliceParam(param);}
 	void SetNWays(int v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetNWays(v); fMerger.SetSliceParam(param);}
+	void SetNWaysOuter(bool v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetNWaysOuter(v); fMerger.SetSliceParam(param);}
 	void SetSearchWindowDZDR(float v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetSearchWindowDZDR(v); fMerger.SetSliceParam(param);for (int i = 0;i < fgkNSlices;i++) fTracker.GetParam(i).SetSearchWindowDZDR(v);}
 	void SetContinuousTracking(bool v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetContinuousTracking(v); fMerger.SetSliceParam(param);for (int i = 0;i < fgkNSlices;i++) fTracker.GetParam(i).SetContinuousTracking(v);}
+	void SetTrackReferenceX(float v) { AliHLTTPCCAParam param = fMerger.SliceParam(); param.SetTrackReferenceX(v); fMerger.SetSliceParam(param);}
 	void UpdateGPUSliceParam() {fTracker.UpdateGPUSliceParam();}
 	void SetEventDisplay(int v) {fEventDisplay = v;}
 	void SetRunQA(int v) {fRunQA = v;}

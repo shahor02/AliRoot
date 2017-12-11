@@ -78,6 +78,7 @@ public:
   Bool_t CacheProdCycle()                                               {return Cache("MonALISA.ProductionCycle", "", "");}
   Bool_t CacheCPass()                                                   {return Cache("MonALISA.ProductionCPass", "", "");}
   Bool_t CacheProdCycleByID(TString ID)                                 {return Cache("MonALISA.ProductionCycleID", ID, "");}
+  static void CacheProduction(TPRegexp select, TPRegexp reject, TString sourceList);
 
   TTree* GetTree(TString type, TString period, TString pass, Int_t buildIndex=1);
   TTree* GetTree(TString type, TString period, TString pass, TString friendList);
@@ -97,7 +98,8 @@ public:
   TTree*  GetTreeMCPassGuess();
   TString GetMCPassGuess(TString MCprodname);
   
-  TChain* GetChain(TString type, TString period, TString pass);
+  TChain* GetChain(TString type, TString period, TString pass, Int_t buildIndex=1);
+  TChain* GetChain(TString type, TString period, TString pass, TString friendList);
   TChain* GetChainMC()                                                  {return GetChain("MonALISA.MC", "", "");}
   TChain* GetChainRCT(TString period, TString pass)                     {return GetChain("MonALISA.RCT", period, pass);}
   TChain* GetChainDataQA(TString detector, TString period, TString pass){return GetChain("QA." + detector, period, pass);}

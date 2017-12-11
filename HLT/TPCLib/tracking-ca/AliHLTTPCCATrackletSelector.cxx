@@ -43,13 +43,6 @@ GPUdi() void AliHLTTPCCATrackletSelector::Thread
 
 		for ( int itr = s.fItr0 + iThread; itr < s.fNTracklets; itr += s.fNThreadsTotal ) {
 
-#ifdef HLTCA_GPU_EMULATION_DEBUG_TRACKLET
-			if (itr == HLTCA_GPU_EMULATION_DEBUG_TRACKLET)
-			{
-				tracker.GPUParameters()->fGPUError = 1;
-			}
-#endif //HLTCA_GPU_EMULATION_DEBUG_TRACKLET
-
 			while (tracker.Tracklets()[itr].NHits() == 0)
 			{
 				itr += s.fNThreadsTotal;
@@ -70,17 +63,17 @@ GPUdi() void AliHLTTPCCATrackletSelector::Thread
 			int gap = 0;
 			int nShared = 0;
 			nHits = 0;
-			const int minHits = TRACKLET_SELECTOR_MIN_HITS(tracklet.Param().QPt());
+			const int minHits = tracker.Param().MinNTrackClusters() == -1 ? TRACKLET_SELECTOR_MIN_HITS(tracklet.Param().QPt()) : tracker.Param().MinNTrackClusters();
 
 			for (irow = firstRow; irow <= lastRow && lastRow - irow + nHits >= minHits; irow++ )
 			{
 				gap++;
 #ifdef EXTERN_ROW_HITS
-				int ih = tracker.TrackletRowHits()[irow * s.fNTracklets + itr];
+				calink ih = tracker.TrackletRowHits()[irow * s.fNTracklets + itr];
 #else
-				int ih = tracklet.RowHit( irow );
+				calink ih = tracklet.RowHit( irow );
 #endif //EXTERN_ROW_HITS
-				if ( ih >= 0 ) {
+				if ( ih != CALINK_INVAL ) {
 					GPUglobalref() const MEM_GLOBAL(AliHLTTPCCARow) &row = tracker.Row( irow );
 					bool own = ( tracker.HitWeight( row, ih ) <= w );
 					bool sharedOK = ( ( nShared < nHits * kMaxShared ) );

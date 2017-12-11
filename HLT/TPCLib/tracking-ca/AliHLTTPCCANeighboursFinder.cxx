@@ -103,8 +103,8 @@ GPUdi() void AliHLTTPCCANeighboursFinder::Thread
 		GPUglobalref() const MEM_GLOBAL(AliHLTTPCCARow) &row = tracker.Row( s.fIRow );
 #endif
         for ( int ih = iThread; ih < s.fNHits; ih += nThreads ) {
-          tracker.SetHitLinkUpData( row, ih, -1 );
-          tracker.SetHitLinkDownData( row, ih, -1 );
+          tracker.SetHitLinkUpData( row, ih, CALINK_INVAL );
+          tracker.SetHitLinkDownData( row, ih, CALINK_INVAL );
         }
       } else {
 /*#ifdef HLTCA_GPUCODE
@@ -158,7 +158,7 @@ GPUdi() void AliHLTTPCCANeighboursFinder::Thread
 
         // coordinates of the hit in the current row
 #if defined(HLTCA_GPU_TEXTURE_FETCH_NEIGHBORS)
-		ushort2 tmpval = tex1Dfetch(gAliTexRefu2, ((char*) tracker.Data().HitData() - tracker.Data().GPUTextureBase()) / sizeof(ushort2) + row.HitNumberOffset() + ih);
+		cahit2 tmpval = tex1Dfetch(gAliTexRefu2, ((char*) tracker.Data().HitData() - tracker.Data().GPUTextureBase()) / sizeof(cahit2) + row.HitNumberOffset() + ih);
         const float y = y0 + tmpval.x * stepY;
         const float z = z0 + tmpval.y * stepZ;
 #else
@@ -167,14 +167,14 @@ GPUdi() void AliHLTTPCCANeighboursFinder::Thread
 #endif //HLTCA_GPU_TEXTURE_FETCH_NEIGHBORS
 
 #if ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP > 0
-      GPUsharedref() unsigned short *neighUp = s.fB[iThread];
+      GPUsharedref() calink *neighUp = s.fB[iThread];
       GPUsharedref() float2 *yzUp = s.fA[iThread];
 #if defined(HLTCA_GPUCODE) & HLTCA_GPU_MAXN > ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP
-	  unsigned short neighUp2[HLTCA_GPU_MAXN - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP];
+	  calink neighUp2[HLTCA_GPU_MAXN - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP];
 	  float2 yzUp2[HLTCA_GPU_MAXN - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP];
 #endif
 #else
-      unsigned short neighUp[HLTCA_GPU_MAXN];
+      calink neighUp[HLTCA_GPU_MAXN];
       float2 yzUp[HLTCA_GPU_MAXN];
 #endif //ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP > 0
 
@@ -193,13 +193,13 @@ GPUdi() void AliHLTTPCCANeighboursFinder::Thread
 #if defined(HLTCA_GPUCODE) & HLTCA_GPU_MAXN > ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP & ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP > 0
 		  if (nNeighUp >= ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP)
 		  {
-			neighUp2[nNeighUp - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP] = ( unsigned short ) i;
+			neighUp2[nNeighUp - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP] = ( calink ) i;
 			yzUp2[nNeighUp - ALIHLTTPCCANEIGHBOURS_FINDER_MAX_NNEIGHUP] = CAMath::MakeFloat2( s.fDnDx * ( h.Y() - y ), s.fDnDx * ( h.Z() - z ) );
 		  }
 		  else
 #endif
 		  {
-			neighUp[nNeighUp] = ( unsigned short ) i;
+			neighUp[nNeighUp] = ( calink ) i;
 			yzUp[nNeighUp] = CAMath::MakeFloat2( s.fDnDx * ( h.Y() - y ), s.fDnDx * ( h.Z() - z ) );
 		  }
           if ( ++nNeighUp >= HLTCA_GPU_MAXN )

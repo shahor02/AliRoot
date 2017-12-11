@@ -28,7 +28,6 @@
 #include "AliHLTTPCGeometry.h"
 #include "AliHLTTPCCATrackerFramework.h"
 #include "AliHLTTPCCAParam.h"
-#include "AliHLTTPCCATrackConvertor.h"
 #include "AliHLTArray.h"
 
 #include "AliHLTTPCRawCluster.h"
@@ -57,6 +56,8 @@
 using namespace std;
 #endif
 
+#include "../tracking-standalone/include/standaloneSettings.h"
+
 const AliHLTComponentDataType AliHLTTPCCADefinitions::fgkTrackletsDataType = AliHLTComponentDataTypeInitializer( "CATRACKL", kAliHLTDataOriginTPC );
 
 /** ROOT macro for the implementation of ROOT specific class methods */
@@ -70,7 +71,7 @@ ClassImp( AliHLTTPCCATrackerComponent )
   fSliceCount( fgkNSlices ),
   fSolenoidBz( 0 ),
   fMinNTrackClusters( -1 ),
-  fMinTrackPt(0.015),
+  fMinTrackPt(MIN_TRACK_PT_DEFAULT),
   fClusterZCut( 500. ),
   fNeighboursSearchArea( 0 ), 
   fClusterErrorCorrectionY(0), 
@@ -85,6 +86,7 @@ ClassImp( AliHLTTPCCATrackerComponent )
   fGPUStuckProtection(0),
   fAsync(0),
   fDumpEvent(0),
+  fDumpEventNClsCut(0),
   fSearchWindowDZDR(0.),
   fAsyncProcessor()
 {
@@ -107,7 +109,7 @@ AliHLTProcessor(),
   fSliceCount( fgkNSlices ),
   fSolenoidBz( 0 ),
   fMinNTrackClusters( -1 ),
-  fMinTrackPt( 0.015 ),
+  fMinTrackPt( MIN_TRACK_PT_DEFAULT ),
   fClusterZCut( 500. ),
   fNeighboursSearchArea(0),
   fClusterErrorCorrectionY(0), 
@@ -122,6 +124,7 @@ AliHLTProcessor(),
   fGPUStuckProtection(0),
   fAsync(0),
   fDumpEvent(0),
+  fDumpEventNClsCut(0),
   fSearchWindowDZDR(0.),
   fAsyncProcessor()
 {
@@ -195,7 +198,7 @@ void AliHLTTPCCATrackerComponent::SetDefaultConfiguration()
 
   fSolenoidBz = -5.00668;
   fMinNTrackClusters = -1;
-  fMinTrackPt = 0.015;
+  fMinTrackPt = MIN_TRACK_PT_DEFAULT;
   fClusterZCut = 500.;
   fNeighboursSearchArea = 0;
   fClusterErrorCorrectionY = 0;
@@ -287,6 +290,13 @@ int AliHLTTPCCATrackerComponent::ReadConfigurationString(  const char* arguments
     if (argument.CompareTo( "-DumpEvent" ) == 0) {
       fDumpEvent = 1;
       HLTImportant( "Dumping Events for Debugging" );
+      continue;
+    }
+
+    if ( argument.CompareTo( "-DumpEventNClsCut" ) == 0 ) {
+      if ( ( bMissingParam = ( ++i >= pTokens->GetEntries() ) ) ) break;
+      fDumpEventNClsCut = ( ( TObjString* )pTokens->At( i ) )->GetString().Atoi();
+      HLTInfo( "Dump Event NCls cut set to: %d", fDumpEventNClsCut );
       continue;
     }
 
@@ -712,6 +722,14 @@ void* AliHLTTPCCATrackerComponent::TrackerDoEvent(void* par)
             pCluster->fZ = c.GetZ();
             pCluster->fRow = firstRow + cRaw.GetPadRow();
             pCluster->fAmp = cRaw.GetCharge();
+#ifdef HLTCA_FULL_CLUSTERDATA
+            pCluster->fPad = cRaw.GetPad();
+            pCluster->fTime = cRaw.GetTime();
+            pCluster->fAmpMax = cRaw.GetQMax();
+            pCluster->fSigmaPad2 = cRaw.GetSigmaPad2();
+            pCluster->fSigmaTime2 = cRaw.GetSigmaTime2();
+            pCluster->fFlags = cRaw.GetFlags();
+#endif
             pCluster++;
           }
         }
@@ -722,12 +740,25 @@ void* AliHLTTPCCATrackerComponent::TrackerDoEvent(void* par)
     }
   }
   
-  if (fDumpEvent && nClustersTotal && fSliceCount == 36)
+  if (fDumpEvent && nClustersTotal > fDumpEventNClsCut && fSliceCount == 36)
   {
     static int nEvent = 0;
     std::ofstream out;
     char filename[256];
-    sprintf(filename, "event.%d.dump", nEvent++);
+
+    if (nEvent == 0)
+    {
+        sprintf(filename, "config.dump");
+        out.open(filename, std::ofstream::binary);
+        hltca_event_dump_settings eventSettings;
+        eventSettings.setDefaults();
+        eventSettings.solenoidBz = fTracker->Param(0).BzkG();
+        eventSettings.constBz = false;
+        out.write((char*) &eventSettings, sizeof(eventSettings));
+        out.close();
+    }
+
+    sprintf(filename, HLTCA_EVDUMP_FILE ".%d.dump", nEvent++);
     out.open(filename, std::ofstream::binary);
     if (!out.fail())
     {

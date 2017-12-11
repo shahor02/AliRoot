@@ -210,7 +210,7 @@ void DrawLinks(AliHLTTPCCATracker &tracker, int id, bool dodown = false)
 			const AliHLTTPCCARow &rowUp = tracker.Data().Row(i + 2);
 			for (int j = 0; j < row.NHits(); j++)
 			{
-				if (tracker.Data().HitLinkUpData(row, j) != -1)
+				if (tracker.Data().HitLinkUpData(row, j) != CALINK_INVAL)
 				{
 					const int cid1 = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(row, j));
 					const int cid2 = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(rowUp, tracker.Data().HitLinkUpData(row, j)));
@@ -225,7 +225,7 @@ void DrawLinks(AliHLTTPCCATracker &tracker, int id, bool dodown = false)
 			const AliHLTTPCCARow &rowDown = tracker.Data().Row(i - 2);
 			for (int j = 0; j < row.NHits(); j++)
 			{
-				if (tracker.Data().HitLinkDownData(row, j) != -1)
+				if (tracker.Data().HitLinkDownData(row, j) != CALINK_INVAL)
 				{
 					const int cid1 = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(row, j));
 					const int cid2 = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(rowDown, tracker.Data().HitLinkDownData(row, j)));
@@ -245,7 +245,7 @@ void DrawSeeds(AliHLTTPCCATracker &tracker)
 		const AliHLTTPCCAHitId &hit = tracker.TrackletStartHit(i);
 		glBegin(GL_LINE_STRIP);
 		int ir = hit.RowIndex();
-		int ih = hit.HitIndex();
+		calink ih = hit.HitIndex();
 		do
 		{
 			const AliHLTTPCCARow &row = tracker.Data().Row(ir);
@@ -253,7 +253,7 @@ void DrawSeeds(AliHLTTPCCATracker &tracker)
 			drawPointLinestrip(cid, 3);
 			ir += 2;
 			ih = tracker.Data().HitLinkUpData(row, ih);
-		} while (ih != -1);
+		} while (ih != CALINK_INVAL);
 		glEnd();
 	}
 }
@@ -269,11 +269,11 @@ void DrawTracklets(AliHLTTPCCATracker &tracker)
 		for (int j = tracklet.FirstRow(); j <= tracklet.LastRow(); j++)
 		{
 #ifdef EXTERN_ROW_HITS
-			const int rowHit = tracker.TrackletRowHits()[j * *tracker.NTracklets() + i];
+			const calink rowHit = tracker.TrackletRowHits()[j * *tracker.NTracklets() + i];
 #else
-			const int rowHit = tracklet.RowHit(j);
+			const calink rowHit = tracklet.RowHit(j);
 #endif
-			if (rowHit != -1)
+			if (rowHit != CALINK_INVAL)
 			{
 				const AliHLTTPCCARow &row = tracker.Data().Row(j);
 				const int cid = tracker.ClusterData()->Id(tracker.Data().ClusterDataIndex(row, rowHit));
@@ -327,8 +327,8 @@ void DrawFinal(AliHLTTPCCAStandaloneFramework &hlt)
 			float smallest = 1e20;
 			for (int k = 0; k < track.NClusters(); k++)
 			{
-				if (merger.ClusterRow()[track.FirstClusterRef() + k] < 0) continue;
-				int cid = merger.OutputClusterIds()[track.FirstClusterRef() + k];
+				if (merger.Clusters()[track.FirstClusterRef() + k].fState < 0) continue;
+				int cid = merger.Clusters()[track.FirstClusterRef() + k].fId;
 				float dist = globalPos[cid].x * globalPos[cid].x + globalPos[cid].y * globalPos[cid].y + globalPos[cid].z * globalPos[cid].z;
 				if (dist < smallest)
 				{
@@ -338,7 +338,7 @@ void DrawFinal(AliHLTTPCCAStandaloneFramework &hlt)
 			}
 		}
 
-		int lastcid = merger.OutputClusterIds()[track.FirstClusterRef() + bestk];
+		int lastcid = merger.Clusters()[track.FirstClusterRef() + bestk].fId;
 		if (reorderFinalTracks) clusterused[bestk] = 1;
 
 		bool linestarted = (globalPos[lastcid].w < SEPERATE_GLOBAL_TRACKS_DISTINGUISH_TYPES);
@@ -357,8 +357,8 @@ void DrawFinal(AliHLTTPCCAStandaloneFramework &hlt)
 				for (int k = 0; k < track.NClusters(); k++)
 				{
 					if (clusterused[k]) continue;
-					if (merger.ClusterRow()[track.FirstClusterRef() + k] < 0) continue;
-					int cid = merger.OutputClusterIds()[track.FirstClusterRef() + k];
+					if (merger.Clusters()[track.FirstClusterRef() + k].fState < 0) continue;
+					int cid = merger.Clusters()[track.FirstClusterRef() + k].fId;
 					float dist = (globalPos[cid].x - globalPos[lastcid].x) * (globalPos[cid].x - globalPos[lastcid].x) +
 					             (globalPos[cid].y - globalPos[lastcid].y) * (globalPos[cid].y - globalPos[lastcid].y) +
 					             (globalPos[cid].z - globalPos[lastcid].z) * (globalPos[cid].z - globalPos[lastcid].z);
@@ -372,8 +372,8 @@ void DrawFinal(AliHLTTPCCAStandaloneFramework &hlt)
 			}
 			else
 			{
-				if (merger.ClusterRow()[track.FirstClusterRef() + j] < 0) continue;
-				bestcid = merger.OutputClusterIds()[track.FirstClusterRef() + j];
+				if (merger.Clusters()[track.FirstClusterRef() + j].fState < 0) continue;
+				bestcid = merger.Clusters()[track.FirstClusterRef() + j].fId;
 			}
 			if (separateGlobalTracks && !linestarted && globalPos[bestcid].w < SEPERATE_GLOBAL_TRACKS_DISTINGUISH_TYPES)
 			{

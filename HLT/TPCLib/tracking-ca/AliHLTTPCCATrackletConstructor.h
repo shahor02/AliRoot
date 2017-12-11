@@ -9,12 +9,6 @@
 #ifndef ALIHLTTPCCATRACKLETCONSTRUCTOR_H
 #define ALIHLTTPCCATRACKLETCONSTRUCTOR_H
 
-#ifdef HLTCA_GPUCODE
-#define HLTCA_GPU_USE_INT short
-#else
-#define HLTCA_GPU_USE_INT int
-#endif //HLTCA_GPUCODE
-
 #include "AliHLTTPCCADef.h"
 #include "AliHLTTPCCAGPUConfig.h"
 #include "AliHLTTPCCATrackParam.h"
@@ -51,7 +45,7 @@ public:
 		int fLastRow; // last row index
 		int fStartRow;  // first row index
 		int fEndRow;  // first row index
-		int fCurrIH; // indef of the current hit
+		calink fCurrIH; // indef of the current hit
 		bool fGo; // do fit/searching flag
 		int fStage; // reco stage
 		int fNHits; // n track hits
@@ -109,8 +103,6 @@ public:
 	GPUd() static void AliHLTTPCCATrackletConstructorCPU(AliHLTTPCCATracker &tracker);
 	GPUd() static int AliHLTTPCCATrackletConstructorGlobalTracking(AliHLTTPCCATracker &tracker, AliHLTTPCCATrackParam& tParam, int startrow, int increment);
 #endif //HLTCA_GPUCODE
-
-	GPUd() static bool SAVE() { return 1; }
 };
 
 #endif //ALIHLTTPCCATRACKLETCONSTRUCTOR_H
