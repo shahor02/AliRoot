@@ -245,7 +245,18 @@ GPUd() bool AliHLTTPCGMTrackParam::Fit(const AliHLTTPCGMPolynomialField* field, 
 
   bool ok = N >= TRACKLET_SELECTOR_MIN_HITS(fP[4]) && CheckNumericalQuality();
 
-  if (param.GetTrackReferenceX() <= 500) prop.PropagateToXAlpha(param.GetTrackReferenceX(), prop.GetAlpha(), 0 );
+  if (param.GetTrackReferenceX() <= 500) {
+    const float kDeg2Rad = 3.1415926535897/180;
+    const float kSectAngle = 2*3.1415926535897/18; // 20 degrees - 1 sector
+    while ( prop.PropagateToXAlpha(param.GetTrackReferenceX(), prop.GetAlpha(), 0 )==0 ) {
+      // make sure the track is indeed within the sector defined by alpha
+      if ( fabs(GetY()) < param.GetTrackReferenceX()*tan(kSectAngle/2) ) break; // ok, within
+      float angle = atan2( GetY(), GetX() )/kDeg2Rad; // recalculate new sector
+      int sector = int(angle)/20; 
+      if (angle<0) sector--; // sector 17 -> -1
+      if ( !prop.RotateToAlpha( kSectAngle*(0.5f+sector) ) != 0 ) break; // failed
+    }
+  }
   Alpha = prop.GetAlpha();
   return(ok);
 }
