@@ -150,7 +150,7 @@ set(SRCS
 # Headers from sources
 string(REPLACE ".cxx" ".h" HDRS "${SRCS}")
 
-set(HDRS ${HDRS} 
+set(HDRS ${HDRS}
     AliSharedPtr.h
     )
 
@@ -159,11 +159,17 @@ set(HDRS ${HDRS}
 get_directory_property(incdirs INCLUDE_DIRECTORIES)
 generate_dictionary("${MODULE}" "${MODULE}LinkDef.h" "${HDRS}" "${incdirs}")
 
-# Create an object to be reused in case of static libraries 
+# Create an object to be reused in case of static libraries
 # Otherwise the sources will be compiled twice
 add_library(STEERBase-object OBJECT ${SRCS} G__${MODULE}.cxx)
 # Add a library to the project using the object
 add_library(STEERBase SHARED $<TARGET_OBJECTS:STEERBase-object>)
+
+# Add two isolated libraries to the project
+add_library(AliMagFast_dip2k-object OBJECT dip2k.cxx)
+add_library(AliMagFast_dip2k SHARED $<TARGET_OBJECTS:AliMagFast_dip2k-object>)
+add_library(AliMagFast_dip5k-object OBJECT dip5k.cxx)
+add_library(AliMagFast_dip5k SHARED $<TARGET_OBJECTS:AliMagFast_dip5k-object>)
 
 # Generate the ROOT map
 # Dependecies
@@ -178,16 +184,23 @@ set_target_properties(${MODULE}-object PROPERTIES COMPILE_FLAGS "")
 # Linking the library, not the object
 target_link_libraries(${MODULE} ${LIBDEPS})
 
+# Make sure efficient binaries are generated
+set(MAGFAST_FLAGS "-O3 -march=native -ffast-math")
+set_target_properties(AliMagFast_dip2k-object PROPERTIES COMPILE_FLAGS ${MAGFAST_FLAGS})
+set_target_properties(AliMagFast_dip5k-object PROPERTIES COMPILE_FLAGS ${MAGFAST_FLAGS})
+
 # Public include folders that will be propagated to the dependecies
 target_include_directories(${MODULE} PUBLIC ${incdirs})
 
 # System dependent: Modify the way the library is build
 if(${CMAKE_SYSTEM} MATCHES Darwin)
     set_target_properties(STEERBase PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    set_target_properties(AliMagFast_dip2k PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
+    set_target_properties(AliMagFast_dip5k PROPERTIES LINK_FLAGS "-undefined dynamic_lookup")
 endif(${CMAKE_SYSTEM} MATCHES Darwin)
 
 # Installation
-install(TARGETS ${MODULE} 
+install(TARGETS ${MODULE} AliMagFast_dip2k AliMagFast_dip5k
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib)
 install(FILES ${HDRS} DESTINATION include)
