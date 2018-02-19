@@ -10,10 +10,11 @@
 //
 // Author: ruben.shahoyan@cern.ch
 //
-#include <math.h>
-#include <unordered_map>
-#include <TObject.h>
 #include <string>
+#include <unordered_map>
+#include <math.h>
+#include <TObject.h>
+#include <TMutex.h>
 
 class AliMagFast : public TObject
 {
@@ -63,7 +64,7 @@ class AliMagFast : public TObject
   void    SetFactorDip(float v=1.f)                       {fFactorDip = v;}
   Float_t GetFactorDip()                            const {return fFactorDip;}
 
- //protected:
+ protected:
 
   Bool_t GetSegmentSol(const float xyz[3], int& zSeg,int &rSeg, int &quadrant) const;
   static const float fgkSolR2Max[kNSolRRanges];       // Rmax2 of each range
@@ -88,7 +89,8 @@ class AliMagFast : public TObject
   std::string fLibNameDip;
 
   // reference counter of shared libraries
-  static std::unordered_map<std::string, int> fgLibRefCnt;
+  static std::unordered_map<std::string, int> fgLibRefCounter;
+  static TMutex fgLibRefCounterMutex;
 
   ClassDef(AliMagFast,1)
 };
