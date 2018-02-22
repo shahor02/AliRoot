@@ -21,9 +21,6 @@ const float AliMagFast::fgkSolR2Max[AliMagFast::kNSolRRanges] =
 
 const float AliMagFast::fgkSolZMax = 550.0f;
 
-std::unordered_map<std::string, int> AliMagFast::fgLibRefCounter;
-TMutex AliMagFast::fgLibRefCounterMutex(kTRUE);
-
 ClassImp(AliMagFast)
 
 AliMagFast::AliMagFast(Float_t factorSol, Float_t factorDip, Int_t nomField,
@@ -63,9 +60,6 @@ AliMagFast::AliMagFast(const AliMagFast &src):
   //AliInfoF("AliMagFast::AliMagFast(const AliMagFast &src) %d",0);
   memcpy(fSolPar,src.fSolPar, kNSolRRanges*kNSolZRanges*kNQuadrants*sizeof(SolParam_t));
 
-  fgLibRefCounterMutex.Lock();
-  fgLibRefCounter[fLibNameDip]++;
-  fgLibRefCounterMutex.UnLock();
 }
 
 AliMagFast& AliMagFast::operator=(const AliMagFast& src)
@@ -80,25 +74,12 @@ AliMagFast& AliMagFast::operator=(const AliMagFast& src)
     memcpy(fSolPar,src.fSolPar, kNSolRRanges*kNSolZRanges*kNQuadrants*sizeof(SolParam_t));
 
     fLibNameDip = src.fLibNameDip;
-    fgLibRefCounterMutex.Lock();
-    fgLibRefCounter[fLibNameDip]++;
-    fgLibRefCounterMutex.UnLock();
   }
   return *this;
 }
 
 AliMagFast::~AliMagFast()
 {
-  fgLibRefCounterMutex.Lock();
-  // unload shared library only if no longer used
-  if (fgLibRefCounter.count(fLibNameDip)) {
-    fgLibRefCounter[fLibNameDip]--;
-    if (fgLibRefCounter[fLibNameDip] <= 0) {
-      gSystem->Unload(fLibNameDip.data());
-      AliInfoF("%s is unloaded.", fLibNameDip.data());
-    }
-  }
-  fgLibRefCounterMutex.UnLock();
 }
 
 Bool_t AliMagFast::LoadData(const char* inpFName, const char* inpFNameDip, const char* symDip)
@@ -165,10 +146,6 @@ Bool_t AliMagFast::LoadData(const char* inpFName, const char* inpFNameDip, const
   fDipSegments = *(SegmentSearch_t*)dipSeg;
   fDipPar = (ChebFormula_t*)dipPar;
   fLibNameDip = TString(inpFNameDip);
-
-  fgLibRefCounterMutex.Lock();
-  fgLibRefCounter[fLibNameDip]++;
-  fgLibRefCounterMutex.UnLock();
 
   return kTRUE;
 }

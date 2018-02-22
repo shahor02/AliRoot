@@ -11,7 +11,6 @@
 // Author: ruben.shahoyan@cern.ch
 //
 #include <string>
-#include <unordered_map>
 #include <math.h>
 #include <TObject.h>
 #include <TMutex.h>
@@ -87,10 +86,6 @@ class AliMagFast : public TObject
   SegmentSearch_t fDipSegments;
   ChebFormula_t *fDipPar;
   std::string fLibNameDip;
-
-  // reference counter of shared libraries
-  static std::unordered_map<std::string, int> fgLibRefCounter;
-  static TMutex fgLibRefCounterMutex;
 
   ClassDef(AliMagFast,1)
 };
