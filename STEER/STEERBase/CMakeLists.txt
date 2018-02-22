@@ -200,7 +200,7 @@ if(${CMAKE_SYSTEM} MATCHES Darwin)
 endif(${CMAKE_SYSTEM} MATCHES Darwin)
 
 # Installation
-install(TARGETS ${MODULE} AliMagFasDip2k AliMagFastDip5k
+install(TARGETS ${MODULE} AliMagFastDip2k AliMagFastDip5k
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib)
 install(FILES ${HDRS} DESTINATION include)
