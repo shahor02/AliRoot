@@ -124,12 +124,15 @@ Bool_t AliMagFast::LoadData(const char* inpFName, const char* inpFNameDip, const
     }
   }
   //
-  AliInfoF("loaded %d params from %s",nParams,inpFName);
+  AliInfoF("loaded %d params for solenoid from %s",nParams,inpFName);
   // load dipole
   const char* dipPath = gSystem->DynamicPathName(inpFNameDip);
   if (!dipPath || gSystem->Load(dipPath) < 0) {
     AliFatalF("Failed to load dipole parameterization %s", inpFNameDip);
     return kFALSE;
+  }
+  else {
+    AliInfoF("loaded library %s for dipole",inpFNameDip);
   }
 
   TString symSeg = Form("%s_z", symDip);

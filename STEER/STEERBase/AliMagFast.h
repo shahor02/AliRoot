@@ -44,7 +44,7 @@ class AliMagFast : public TObject
 
   AliMagFast(Float_t factorSol=1.f, Float_t factorDip=1.f, Int_t nomField = 5,
     const char* inpFmt="$(ALICE_ROOT)/data/maps/sol%dk.txt",
-    const char* inpFmtDip="libAliMagFast_dip%dk",
+    const char* inpFmtDip="libAliMagFastDip%dk",
     const char* symFmtDip="dip%dk");
   AliMagFast(const char* inpFName, const char* inpFNameDip, const char* symFmtDip);
   AliMagFast(const AliMagFast& src);
@@ -109,7 +109,7 @@ inline float AliMagFast::CalcPol(const float* cf, float x,float y, float z) cons
 inline Bool_t AliMagFast::QuickSearch(const SegmentSearch_t ss, const float z, UShort_t &id) const
 {
   const int index = floor((z - ss.offset) * ss.factor);
-  if (index > ss.nDivision) return kFALSE;
+  if (index > ss.nDivision || index<0) return kFALSE;
   SegmentEnd_t se = ss.slices[index];
   id = se.index + (z < se.endPos ? 0 : 1);
   return kTRUE;
