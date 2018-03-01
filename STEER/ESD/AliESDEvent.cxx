@@ -2798,6 +2798,7 @@ void AliESDEvent::AdjustMCLabels(const AliVEvent *mcTruth)
   
   
 }
+<<<<<<< 36f834e4afec739f9e33b7db69b95c32c610788b
 
 <<<<<<< cbbf597a85df82b9f5f1cc435d40ab978d6769c0
 //________________________________________________
@@ -2877,3 +2878,5 @@ void AliESDEvent::FixITSSAFlags()
    
 >>>>>>> In events w/o TPC we want to get only complementary ITS_SA tracks
 }
+=======
+>>>>>>> Revert "In events w/o TPC we want to get only complementary ITS_SA tracks"
