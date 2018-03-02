@@ -64,7 +64,12 @@ void MakeGRPRecoParam(AliRecoParam::EventSpecie_t default=AliRecoParam::kLowMult
     param->AddV0HypSel( AliV0HypSel("antiLambda",139.570e-3, 938.272e-3, 1115.683e-3, 0.001, 20, 0.07));
     param->AddV0HypSel( AliV0HypSel("HyperTriton",2.8092, 139.570e-3, 2.992, 0.0025, 14, 0.07));
     param->AddV0HypSel( AliV0HypSel("antiHyperTriton",139.570e-3, 2.8092, 2.992, 0.0025, 14, 0.07));
-    
+
+    param->SetFlagsNotToClean(AliESDtrack::kITSin | AliESDtrack::kTRDrefit |
+			      AliESDtrack::kTOFout | AliESDtrack::kHMPIDout);
+    param->SetVertexerV0EtaMax(1);
+    param->SetCleanOfflineV0Prongs(kTRUE); // fill 0s in redundant prongs
+    param->SetCleanDCAZCut(30.);
     recoParamArray->AddLast(param);
   }
   {
@@ -107,7 +112,12 @@ void MakeGRPRecoParam(AliRecoParam::EventSpecie_t default=AliRecoParam::kLowMult
     param->AddV0HypSel( AliV0HypSel("antiLambda",139.570e-3, 938.272e-3, 1115.683e-3, 0.001, 20, 0.07));
     param->AddV0HypSel( AliV0HypSel("HyperTriton",2.8092, 139.570e-3, 2.992, 0.0025, 14, 0.07));
     param->AddV0HypSel( AliV0HypSel("antiHyperTriton",139.570e-3, 2.8092, 2.992, 0.0025, 14, 0.07));
-
+    param->SetVertexerV0EtaMax(1);
+    param->SetCleanOfflineV0Prongs(kTRUE); // fill 0s in redundant prongs
+    
+    param->SetFlagsNotToClean(AliESDtrack::kITSin | AliESDtrack::kTRDrefit |
+			      AliESDtrack::kTOFout | AliESDtrack::kHMPIDout);
+    param->SetCleanDCAZCut(30.);    
     recoParamArray->AddLast(param);
   }
 
