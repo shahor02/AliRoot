@@ -960,9 +960,10 @@ int AliESDEvent::CleanV0s(const AliGRPRecoParam *grpRecoParam)
   for (int iv=GetNumberOfV0s();iv--;) {
     const AliESDv0 *v0 = GetV0(iv);
     int badV0 = 0;
-    if (v0->GetUsedByCascade()) continue; // don't touch V0s used for cascades
     //
+    Bool_t used = v0->GetUsedByCascade();
     if (v0->GetOnFlyStatus()) {
+      if (used) continue;
       if (TMath::Abs(v0->Eta())>etaMax) badV0 = 1;
       else if (nhypsel) {
 	Bool_t reject = kTRUE;
@@ -979,7 +980,8 @@ int AliESDEvent::CleanV0s(const AliGRPRecoParam *grpRecoParam)
       }
     } // end of online V0 check
     else {
-      if ( TMath::Abs(v0->Eta())>etaMax) badV0 = 1; // offline V0s have passed mass hypothesis check already at V0-vertexer level      
+      // offline V0s have passed mass hypothesis check already at V0-vertexer level
+      if ( TMath::Abs(v0->Eta())>etaMax && !used) badV0 = 1; 
       else if (cleanProngs) { // empty redundand prongs info
 	AliExternalTrackParam *parP=(AliExternalTrackParam*)v0->GetParamP();
 	AliExternalTrackParam *parN = (AliExternalTrackParam*) v0->GetParamN();
@@ -2617,9 +2619,6 @@ void AliESDEvent::ConnectTracks() {
     while ((clus=(AliESDTOFCluster*)nextTOF())) clus->SetEvent((AliVEvent *) this);
   }
 
-  // If relevant, conver ITSpureSA tracks to complementarySA tracks in events w/o TPC
-  FixITSSAFlags();
-
   RestoreOfflineV0Prongs();
 
   fTracksConnected = kTRUE;
@@ -2798,9 +2797,7 @@ void AliESDEvent::AdjustMCLabels(const AliVEvent *mcTruth)
   
   
 }
-<<<<<<< 36f834e4afec739f9e33b7db69b95c32c610788b
 
-<<<<<<< cbbf597a85df82b9f5f1cc435d40ab978d6769c0
 //________________________________________________
 void AliESDEvent::EmptyOfflineV0Prongs()
 {
@@ -2830,7 +2827,7 @@ void AliESDEvent::RestoreOfflineV0Prongs()
     AliExternalTrackParam *parP = (AliExternalTrackParam*) v0->GetParamP();
     AliExternalTrackParam *parN = (AliExternalTrackParam*) v0->GetParamN();
     // if at least 1 v0 was not filled by 0s, this is true for all
-    if (parP->GetSigmaY2()>0. && parP->GetSigmaZ2()>0.) break; 
+    if (parP->GetSigmaY2()>0. && parP->GetSigmaZ2()>0.) break;
     double xP = parP->GetX(), xN = parN->GetX(); // Only X info is valid
     *parP = *GetTrack(v0->GetPindex());
     *parN = *GetTrack(v0->GetNindex());
@@ -2846,37 +2843,5 @@ void AliESDEvent::RestoreOfflineV0Prongs()
     }
     //    
   }
-=======
-void AliESDEvent::FixITSSAFlags()
-{
-  // between 2015 and 2017 in absence of TPC only ITS pureSA tracks were reconstructed.
-  // This created some problem in filtering, therefer we reverted this behaviour to reconstruct
-  // only complementarySA in absence of TPC (they will be physically equivalent to pureSA in this case)
-  // For emulate this behavoiur, we need to override the pureSA flag for TPC-less events in old ESDs
 
-  // this is relevant only events w/o TPC
-  if (GetNumberOfTPCClusters()>0) return;
-  
-  int nPureSA = 0;
-  // check if this event is affected, i.e. it has no ITScomplementary tracks but has SA tracks
-  for (int i=GetNumberOfTracks();i--;) {
-    AliESDtrack* tr = GetTrack(i);
-    ULong_t flags = tr->GetStatus();
-    if ( flags & AliESDtrack::kTPCin ) continue;
-    if ( flags & AliESDtrack::kITSpureSA ) {
-      nPureSA++;
-      continue;
-    }
-    if ( flags & AliESDtrack::kITSin ) return; // if there is at least 1 complementary SA track, do nothing 
-  }
-  if (!nPureSA) return;
-  // change all pureSA tracks to complementarySA
-  for (int i=GetNumberOfTracks();i--;) {
-    AliESDtrack* tr = GetTrack(i);
-    if (tr->IsOn(AliESDtrack::kITSpureSA)) tr->ResetStatus(AliESDtrack::kITSpureSA);
-  }
-   
->>>>>>> In events w/o TPC we want to get only complementary ITS_SA tracks
 }
-=======
->>>>>>> Revert "In events w/o TPC we want to get only complementary ITS_SA tracks"
