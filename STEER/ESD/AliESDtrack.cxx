@@ -193,6 +193,7 @@ AliESDtrack::AliESDtrack() :
   fCp(0),
   fIp(0),
   fTPCInner(0),
+  fTPCInner0(0),
   fOp(0),
   fHMPIDp(0),  
   fFriendTrack(NULL),
@@ -242,6 +243,14 @@ AliESDtrack::AliESDtrack() :
   fTPCsignalTuned(0),
   fTPCsignalS(0),
   fTPCdEdxInfo(0),
+
+  fTPCsignal0(0),
+  fTPCsignalS0(0),
+  fTPCsignalN0(0),
+  fTPCsignal1(0),
+  fTPCsignalS1(0),
+  fTPCsignalN1(0),
+
   fTRDsignal(0),
   fTRDQuality(0),
   fTRDBudget(0),
@@ -315,6 +324,7 @@ AliESDtrack::AliESDtrack(const AliESDtrack& track):
   fCp(0),
   fIp(0),
   fTPCInner(0),
+  fTPCInner0(0),
   fOp(0),
   fHMPIDp(0),  
   fFriendTrack(0),
@@ -364,6 +374,14 @@ AliESDtrack::AliESDtrack(const AliESDtrack& track):
   fTPCsignalTuned(track.fTPCsignalTuned),
   fTPCsignalS(track.fTPCsignalS),
   fTPCdEdxInfo(0),
+
+  fTPCsignal0(track.fTPCsignal0),
+  fTPCsignalS0(track.fTPCsignalS0),
+  fTPCsignalN0(track.fTPCsignalN0),
+  fTPCsignal1(track.fTPCsignal1),
+  fTPCsignalS1(track.fTPCsignalS1),
+  fTPCsignalN1(track.fTPCsignalN1),
+  
   fTRDsignal(track.fTRDsignal),
   fTRDQuality(track.fTRDQuality),
   fTRDBudget(track.fTRDBudget),
@@ -476,6 +494,7 @@ AliESDtrack::AliESDtrack(const AliESDtrack& track):
   if (track.fCp) fCp=new AliExternalTrackParam(*track.fCp);
   if (track.fIp) fIp=new AliExternalTrackParam(*track.fIp);
   if (track.fTPCInner) fTPCInner=new AliExternalTrackParam(*track.fTPCInner);
+  if (track.fTPCInner0) fTPCInner0=new AliExternalTrackParam(*track.fTPCInner0);
   if (track.fOp) fOp=new AliExternalTrackParam(*track.fOp);
   if (track.fHMPIDp) fHMPIDp=new AliExternalTrackParam(*track.fHMPIDp);
   if (track.fTPCdEdxInfo) fTPCdEdxInfo = new AliTPCdEdxInfo(*track.fTPCdEdxInfo);
@@ -495,6 +514,7 @@ AliESDtrack::AliESDtrack(const AliVTrack *track) :
   fCp(0),
   fIp(0),
   fTPCInner(0),
+  fTPCInner0(0),
   fOp(0),
   fHMPIDp(0),  
   fFriendTrack(0),
@@ -544,6 +564,14 @@ AliESDtrack::AliESDtrack(const AliVTrack *track) :
   fTPCsignalTuned(0),
   fTPCsignalS(0),
   fTPCdEdxInfo(0),
+
+  fTPCsignal0(0),
+  fTPCsignalS0(0),
+  fTPCsignalN0(0),
+  fTPCsignal1(0),
+  fTPCsignalS1(0),
+  fTPCsignalN1(0),
+  
   fTRDsignal(0),
   fTRDQuality(0),
   fTRDBudget(0),
@@ -711,6 +739,7 @@ AliESDtrack::AliESDtrack(TParticle * part) :
   fCp(0),
   fIp(0),
   fTPCInner(0),
+  fTPCInner0(0),
   fOp(0),
   fHMPIDp(0),  
   fFriendTrack(0),
@@ -760,6 +789,14 @@ AliESDtrack::AliESDtrack(TParticle * part) :
   fTPCsignalTuned(0),
   fTPCsignalS(0),
   fTPCdEdxInfo(0),
+
+  fTPCsignal0(0),
+  fTPCsignalS0(0),
+  fTPCsignalN0(0),
+  fTPCsignal1(0),
+  fTPCsignalS1(0),
+  fTPCsignalN1(0),
+  
   fTRDsignal(0),
   fTRDQuality(0),
   fTRDBudget(0),
@@ -888,7 +925,8 @@ AliESDtrack::~AliESDtrack(){
   //
   //printf("Delete track\n");
   delete fIp; 
-  delete fTPCInner; 
+  delete fTPCInner;
+  delete fTPCInner0; 
   delete fOp;
   delete fHMPIDp;
   delete fCp; 
@@ -961,6 +999,16 @@ AliESDtrack &AliESDtrack::operator=(const AliESDtrack &source)
     // no track param delete the old one
     delete fTPCInner;
     fTPCInner = 0;
+  }
+  if(source.fTPCInner0){
+    // we have the trackparam: assign or copy construct
+    if(fTPCInner0) *fTPCInner0 = *source.fTPCInner0;
+    else fTPCInner0 = new AliExternalTrackParam(*source.fTPCInner0);
+  }
+  else{
+    // no track param delete the old one
+    delete fTPCInner0;
+    fTPCInner0 = 0;
   }
 
   if(source.fTPCdEdxInfo) {
@@ -1119,6 +1167,14 @@ AliESDtrack &AliESDtrack::operator=(const AliESDtrack &source)
   for(int i = 0; i< 4;++i){
     fTPCPoints[i] = source.fTPCPoints[i];  
   }
+
+  fTPCsignal0 = source.fTPCsignal0;
+  fTPCsignalS0 = source.fTPCsignalS0;
+  fTPCsignalN0 = source.fTPCsignalN0;
+  fTPCsignal1 = source.fTPCsignal1;
+  fTPCsignalS1 = source.fTPCsignalS1;
+  fTPCsignalN1 = source.fTPCsignalN1;
+  
   fTRDsignal = source.fTRDsignal;
   fTRDNchamberdEdx = source.fTRDNchamberdEdx;
   fTRDNclusterdEdx = source.fTRDNclusterdEdx;
@@ -1653,7 +1709,8 @@ Bool_t AliESDtrack::UpdateTrackParams(const AliKalmanTrack *t, ULong64_t flags){
     {
     fTPCLabel = t->GetLabel();
     if (flags==kTPCin)  {
-      fTPCInner=new AliExternalTrackParam(*t); 
+      fTPCInner=new AliExternalTrackParam(*t);
+      fTPCInner0=new AliExternalTrackParam(*t); 
       fTPCnclsIter1=t->GetNumberOfClusters();    
       fTPCchi2Iter1=t->GetChi2();
     }

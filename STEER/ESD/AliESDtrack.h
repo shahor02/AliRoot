@@ -131,6 +131,7 @@ public:
   }
   const AliExternalTrackParam * GetInnerParam() const { return fIp;}
   const AliExternalTrackParam * GetTPCInnerParam() const {return fTPCInner;}
+  const AliExternalTrackParam * GetTPCInnerParam0() const {return fTPCInner0;}
   Bool_t FillTPCOnlyTrack(AliESDtrack &track);
   Bool_t GetInnerXYZ(Double_t *r) const {
     if (!fIp) return kFALSE;
@@ -242,6 +243,12 @@ public:
   }
   void    SetTPCsignal(Float_t signal, Float_t sigma, UChar_t npoints){ 
      fTPCsignal = signal; fTPCsignalS = sigma; fTPCsignalN = npoints;
+     if (IsOn(kTPCin) && !IsOn(kTPCout) && !IsOn(kTPCrefit)) {
+       fTPCsignal0 = signal; fTPCsignalS0 = sigma; fTPCsignalN0 = npoints;
+     }
+     if (IsOn(kTPCin) && IsOn(kTPCout) && !IsOn(kTPCrefit)) {
+       fTPCsignal1 = signal; fTPCsignalS1 = sigma; fTPCsignalN1 = npoints;
+     }     
   }
   void    SetTPCsignalTunedOnData(Double_t signal){
       fTPCsignalTuned = signal;
@@ -256,6 +263,13 @@ public:
     return 0;
   }
 
+  Double_t GetTPCsignal0() const {return fTPCsignal0;}
+  Double_t GetTPCsignalSigma0() const {return fTPCsignalS0;}
+  UShort_t GetTPCsignalN0() const {return fTPCsignalN0;}  
+  Double_t GetTPCsignal1() const {return fTPCsignal1;}
+  Double_t GetTPCsignalSigma1() const {return fTPCsignalS1;}
+  UShort_t GetTPCsignalN1() const {return fTPCsignalN1;}  
+  
   Double_t GetTPCsignal() const {return fTPCsignal;}
   Double_t GetTPCsignalTunedOnData() const {return fTPCsignalTuned;}
   Double_t GetTPCsignalSigma() const {return fTPCsignalS;}
@@ -535,6 +549,8 @@ public:
   void ResetTrackParamTPCInner ( const AliExternalTrackParam *p ) {
       if (fTPCInner) delete fTPCInner;
       fTPCInner=new AliExternalTrackParam(*p);
+      if (fTPCInner0) delete fTPCInner0;
+      fTPCInner0=new AliExternalTrackParam(*p);
       }
   Int_t GetNumberOfITSClusters() const { return fITSncls;}
   Int_t GetNumberOfTPCClusters() const { return fTPCncls;}
@@ -552,7 +568,8 @@ protected:
   
   AliExternalTrackParam *fCp; // Track parameters constrained to the primary vertex
   AliExternalTrackParam *fIp; // Track parameters estimated at the inner wall of TPC at PropagateBack stage
-  AliExternalTrackParam *fTPCInner; // Track parameters estimated at the inner wall of TPC using the TPC stand-alone and propagating to vtx w/o material correction 
+  AliExternalTrackParam *fTPCInner; // Track parameters estimated at the inner wall of TPC using the TPC stand-alone and propagating to vtx w/o material correction
+  AliExternalTrackParam *fTPCInner0; // Track parameters estimated at the inner wall of TPC using the TPC stand-alone and propagating to vtx w/o material correction 
   AliExternalTrackParam *fOp; // Track parameters estimated at the point of maximal radial coordinate reached during the tracking
   AliExternalTrackParam *fHMPIDp; // Track parameters at HMPID
   AliESDfriendTrack *fFriendTrack; //! All the complementary information
@@ -626,6 +643,15 @@ protected:
   AliTPCdEdxInfo * fTPCdEdxInfo; // object containing dE/dx information for different pad regions
   Double32_t  fTPCPoints[4];     // [0.,0.,10] TPC points -first, max. dens, last and max density
 
+  Double32_t  fTPCsignal0;        // [0.,0.,10] detector's PID signal
+  Double32_t  fTPCsignalS0;       // [0.,0.,10] RMS of dEdx measurement
+  UShort_t fTPCsignalN0;    // number of points used for dEdx
+
+  Double32_t  fTPCsignal1;        // [0.,0.,10] detector's PID signal
+  Double32_t  fTPCsignalS1;       // [0.,0.,10] RMS of dEdx measurement
+  UShort_t fTPCsignalN1;    // number of points used for dEdx
+
+  
   Double32_t fTRDsignal;      // detector's PID signal
   Double32_t fTRDQuality;     // trd quality factor for TOF
   Double32_t fTRDBudget;      // trd material budget
